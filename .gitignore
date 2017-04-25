@@ -1,0 +1,4 @@
+.idea
+Poznámky.txt
+dev-tests/migrations/*
+node_modules

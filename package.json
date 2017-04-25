@@ -1,0 +1,36 @@
+{
+  "name": "unimapperjs",
+  "version": "0.0.1",
+  "description": "Universal database object mapper",
+  "author": {
+    "name": "Roman Jámbor",
+    "email": "hookcze@gmail.com"
+  },
+  "main": "index.js",
+  "keywords": [
+    "orm",
+    "odm",
+    "database",
+    "object",
+    "mapper",
+    "universal",
+    "mongodb",
+    "mysql",
+    "postgre",
+    "mssql"
+  ],
+  "license": "MIT",
+  "engines": {
+    "node": ">=7.7.0"
+  },
+  "devDependencies": {
+    "mysql2": "latest"
+  },
+  "dependencies": {
+    "json-prettify": "^1.2.0",
+    "uuid": "^3.0.1"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  }
+}
