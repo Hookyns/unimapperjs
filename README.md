@@ -4,6 +4,8 @@ Database object mapper (ORM / ODM) for all types of databases (SQL, NoSQL).
 
 !! Early DEVELOPMENT !!
 
+See [wiki](https://github.com/Hookyns/unimapperjs/wiki)
+
 
 ## Main Features
 - Adapters - if your database isn't supported, you can write own adapter,
