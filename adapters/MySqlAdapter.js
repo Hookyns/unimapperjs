@@ -12,6 +12,8 @@
 
 const mysql = require("mysql2");
 const Types = require("../src/Type").Types;
+const escapeSqlString = mysql.escape;
+const escapeIdSqlString = mysql.escapeId;
 
 /**
  * Return MySQL type by code type
@@ -106,7 +108,57 @@ function fieldDesc(name, description) {
 	// 		? "DEFAULT '" + (typeof f.default == "string" ? f.default : ~~f.default) + "'" : ""}
 }
 
-module.exports = class MySqlAdapter {
+/**
+ * Create SQL WHERE condition
+ * @param {Array} conditions
+ * @returns {string}
+ */
+function buildWhereCondition(conditions) {
+	var query = "";
+
+	for (var c = 0; c < conditions.length; c++) {
+		let cond = conditions[c];
+
+		if (cond.constructor == Object) {
+			if (cond.func == "=") {
+				query += cond.field + ` = ${escapeSqlString(cond.arg)}`;
+			} else if (cond.func == "!=") {
+				query += cond.field + ` != ${escapeSqlString(cond.arg)}`;
+			} else if (cond.func == ">") {
+				query += cond.field + ` > ${escapeSqlString(cond.arg)}`;
+			} else if (cond.func == ">=") {
+				query += cond.field + ` >= ${escapeSqlString(cond.arg)}`;
+			} else if (cond.func == "<") {
+				query += cond.field + ` < ${escapeSqlString(cond.arg)}`;
+			} else if (cond.func == "<=") {
+				query += cond.field + ` <= ${escapeSqlString(cond.arg)}`;
+			} else if (cond.func == "includes") {
+				query += cond.field + ` LIKE %${escapeSqlString(cond.arg)}%`;
+			} else if (cond.func == "startswith") {
+				query += cond.field + ` LIKE ${escapeSqlString(cond.arg)}%`;
+			} else if (cond.func == "endswith") {
+				query += cond.field + ` LIKE %${escapeSqlString(cond.arg)}`;
+			} else {
+				throw new Error(`Unsupported function operator '${cond.func}' found in query`);
+			}
+		} else if (cond.constructor == Array) {
+			query += "(" + buildWhereCondition(cond) + ")";
+		} else if (cond.constructor == String) {
+			if (cond == "and") {
+				query += " AND ";
+			} else if (cond == "or") {
+				query += " OR ";
+			} else {
+				throw new Error(`Unsupported logical operator '${cond}' found in query`);
+			}
+		}
+	}
+
+	return query;
+}
+
+
+class MySqlAdapter {
 
 	//<editor-fold desc="Static Properties">
 
@@ -137,6 +189,12 @@ module.exports = class MySqlAdapter {
 		 * @type {null}
 		 */
 		this.pool = null;
+
+		/**
+		 * List of executed queries allowing to show what adapter did
+		 * @type {Array<{ sql: String, data: Object }>}
+		 */
+		this.executedQueries = [];
 	}
 
 	//</editor-fold>
@@ -181,83 +239,166 @@ module.exports = class MySqlAdapter {
 
 	/**
 	 * Insert new record
-	 * @param {String} entityName
+	 * @param {Entity} entity Instance of entity
 	 * @param {Object} data
-	 * @param {Entity} entity
-	 * @param {Object} idDescription
 	 * @param [connection]
 	 * @returns {UniMapperEntity}
 	 */
-	async insert(entityName, data, entity, idDescription, connection) {
-		try {
-			var conn = connection || await this.getConnection();
+	async insert(entity, data, connection) {
+		var conn = connection || await this.getConnection();
 
-			var query = "INSERT INTO " + entityName + " (";
+		var query = "INSERT INTO " + entity.constructor.name + " (";
 
-			var keys = Object.keys(data);
-			var args = [];
-			var vals = "";
+		var keys = Object.keys(data);
+		var args = [];
+		var vals = "";
 
-			for (var i = 0; i < keys.length; i++) {
-				// Column
-				query += keys[i];
+		for (var i = 0; i < keys.length; i++) {
+			// Column
+			query += keys[i];
 
-				// Values
-				vals += "?";
-				args.push(data[keys[i]]);
+			// Values
+			vals += "?";
+			args.push(data[keys[i]]);
 
-				if (i < keys.length - 1) {
-					vals += ", ";
-					query += ", ";
-				}
+			if (i < keys.length - 1) {
+				vals += ", ";
+				query += ", ";
 			}
-
-			query += ") VALUES (" + vals + ");";
-
-			var result = await conn.query(query, args);
-
-			if (idDescription.type == Types.Number && idDescription.autoIncrement && result[0]) {
-				// Add id directly to __propeties - avoid marking ID as changed
-				entity.__properties.id = result[0].insertId;
-			}
-
-			if (!connection) await conn.release();
-
-			return entity;
-		} catch (e) {
-			console.error(e.stack);
 		}
+
+		query += ") VALUES (" + vals + ");";
+
+		var preResult;
+		var result = await (preResult = conn.query(query, args));
+
+		this.logQuery(result[2].sql, null);
+
+		var idDescription = entity.constructor.getDescription().id;
+		if (idDescription.type == Types.Number && idDescription.autoIncrement && result[0]) {
+			// Add id directly to __propeties - avoid marking ID as changed
+			entity.__properties.id = result[0].insertId;
+		}
+
+		if (!connection) await conn.release();
+
+		return entity;
 	}
 
 	/**
 	 * Update record
-	 * @param entity
-	 * @param data
+	 * @param {Entity} entity
+	 * @param {Object} data
+	 * @param {Object} [where]
 	 * @param [connection]
 	 */
-	async update(entity, data, connection) {
-
+	async update(entity, data, where = {}, connection) {
+		var conn = connection || await this.getConnection();
+		var result = await conn.query(`UPDATE ${entity.name} SET ? WHERE ?;`, [data, where]);
+		this.logQuery(result[2].sql, null);
+		if (!connection) await conn.release();
 	}
 
 	/**
 	 * Remove record
 	 * @param entity
+	 * @param {Object} [where]
 	 * @param [connection]
 	 */
-	async remove(entity, connection) {
-
+	async remove(entity, where = {}, connection) {
+		var conn = connection || await this.getConnection();
+		var result = await conn.query(`DELETE FROM ${entity.name} WHERE ?;`, [where]);
+		this.logQuery(result[2].sql, null);
+		if (!connection) await conn.release();
 	}
 
 	/**
 	 * Select records
-	 * @param entityName
-	 * @param condition
-	 * @param order
-	 * @param limit
-	 * @param offset
+	 * @param {Function<UniMapperEntity>} entity
+	 * @param {Array<String>} select List of fields which should be selected
+	 * @param [conditions]
+	 * @param {Array<{ field: String, order: "ASC" | "DESC"}>} [order]
+	 * @param [limit]
+	 * @param [skip]
 	 */
-	async select(entityName, condition, order, limit, offset) {
+	async select(entity, select, conditions, order, limit, skip) {
+		// EG. e => e.name.includes("o") && (e.foo > 5 || e.foo < -5) || e.foo in [1, 2, 3]
+		// [
+		// 	{ field: "name", func: "icludes", arg: "o" },
+		// 	"and",
+		// 	[
+		// 		{ field: "foo", func: ">", arg: 5 },
+		// 		"or",
+		// 		{ field: "foo", func: "<", arg: -5 },
+		// 	],
+		// 	"or",
+		// 	{ field: "foo", func: "in", arg: [1,2,3] }
+		// ] => name LIKE '%o%' AND (foo > 5 OR foo < -5) OR doo IN (1,2,3)
 
+		if (!select) {
+			select = [];
+		}
+
+		if (!order) {
+			order = [];
+		}
+
+		var conn = await this.getConnection();
+
+		var sel = "";
+		if (select.length > 0) {
+			for (var s = 0; s < select.length; s++) {
+				if (s != 0) sel += ", ";
+
+				if (select[s].constructor == Object) {
+					let obj = select[s];
+
+					if (obj.func == "count") {
+						sel += `COUNT(${obj.arg || "*"}) AS count`;
+					} else {
+						throw new Error(`Unsupported function '${obj.func}' found in query`);
+					}
+				} else {
+					sel += select[s];
+				}
+			}
+		} else {
+			sel = "*";
+		}
+
+		var query = `SELECT ${sel} FROM ${entity.name}`;
+
+		if (conditions.length > 0) {
+			query += " WHERE " + buildWhereCondition(conditions);
+		}
+
+		if (order.length > 0) {
+			query += " ORDER BY ";
+
+			for (let or = 0; or < order.length; or++) {
+				// escapeSqlString() just for sure if somebody take field from client
+				query += (or != 0 ? ", " : "") + escapeIdSqlString(order[or].field) + " "
+					+ (order[or].order == "desc" ? "DESC" : "ASC");
+			}
+		}
+
+		if (limit) {
+			query += " LIMIT " + parseInt(limit);
+		}
+
+		if (skip) {
+			query += " OFFSET " + parseInt(skip);
+		}
+
+		query += ";";
+
+		var result = await conn.query(query);
+
+		this.logQuery(result[2].sql, null);
+
+		await conn.release();
+
+		return result[0];
 	}
 
 	/**
@@ -475,4 +616,46 @@ module.exports = class MySqlAdapter {
 
 	//</editor-fold>
 
-};
+	//<editor-fold desc="Aditional Adapter Features">
+
+	/**
+	 * Execute native SQL query
+	 * @param query
+	 * @param [params]
+	 * @param [connection]
+	 */
+	async query(query, params = [], connection) {
+		var conn = connection || await this.getConnection();
+		var result = await conn.query(query, params);
+		this.logQuery(result[2].sql, null);
+		if (!connection) await conn.release();
+		return result[0];
+	}
+
+	// </editor-fold>
+
+	//<editor-fold desc="Private Methods">
+	/**
+	 * Add query to list
+	 * @param {String} query
+	 * @param {Object} data
+	 */
+	logQuery(query, data) {
+		if (this.executedQueries.length >= MySqlAdapter.numberOfStoredQueries) {
+			this.executedQueries.shift();
+		}
+
+		this.executedQueries.push({sql: query, data: data});
+	}
+
+	//</editor-fold>
+
+}
+
+/**
+ * Change how many queries should be stored in memory
+ * @type {number}
+ */
+MySqlAdapter.numberOfStoredQueries = 20;
+
+module.exports = MySqlAdapter;

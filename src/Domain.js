@@ -85,7 +85,7 @@ class Domain {
 	 * @param {String} name
 	 * @param {Object<Type>} properties
 	 * @param {Type} [idType]
-	 * @returns {Entity}
+	 * @returns {Function}
 	 */
 	createEntity(name, properties, idType = null) {
 		if (properties.constructor != Object) {
@@ -126,18 +126,20 @@ class Domain {
 		var domain = this;
 
 		var entity = class extends Entity {
-			constructor(data) {
+			constructor(data, selected) {
 				var defData = {};
 
-				for (var p in defaultData) {
-					if (data.hasOwnProperty(p)) {
-						defData[p] = data[p];
-					} else if (defaultData.hasOwnProperty(p)) {
-						defData[p] = defaultData[p]();
+				if (data) {
+					for (var p in defaultData) {
+						if (data.hasOwnProperty(p)) {
+							defData[p] = data[p];
+						} else if (defaultData.hasOwnProperty(p)) {
+							defData[p] = defaultData[p]();
+						}
 					}
 				}
 
-				super(defData);
+				super(defData, selected);
 			}
 		};
 
@@ -180,9 +182,13 @@ class Domain {
 		return entity;
 	}
 
+	async nativeQuery(query) {
+		return await this.__adapter.query(query);
+	}
+
 	/**
 	 * Create migration script
-	 * @param path
+	 * @param {String} path
 	 */
 	async createMigration(path) {
 		var tables = await this.__adapter.getListOfEntities(this.__connectionInfo);
@@ -278,7 +284,7 @@ module.exports = {\n\tup: async function up(adapter) {\n`;
 
 	/**
 	 * Run migration from path
-	 * @param path
+	 * @param {String} path
 	 */
 	async runMigration(path) {
 		path = $path.resolve(path);
@@ -302,9 +308,11 @@ module.exports = {\n\tup: async function up(adapter) {\n`;
 		}
 	}
 
-
+	/**
+	 * Call dispose in adapter if needed
+	 */
 	async dispose() {
-		this.__adapter.dispose(this.__connectionInfo);
+		if (this.__adapter.dispose) this.__adapter.dispose(this.__connectionInfo);
 	}
 
 	//</editor-fold>

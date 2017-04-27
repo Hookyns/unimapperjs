@@ -1,4 +1,8 @@
-// const Type = require("./src/Type");
+/**
+ * UniMapperJS - universal object mapper for SQL and noSQL databases
+ * @author Roman Jámbor
+ */
+
 const StringType = require("./src/types/String");
 const NumberType = require("./src/types/Number");
 const BooleanType = require("./src/types/Boolean");
@@ -61,6 +65,11 @@ Object.defineProperty(type, "uuid", {
 
 module.exports = {
 	type: type,
+
+	/**
+	 * @type {UnitOfWork}
+	 */
+	UnitOfWork: require("./src/UnitOfWork"),
 
 	/**
 	 *
