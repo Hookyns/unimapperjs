@@ -1,5 +1,5 @@
 # UniMapperJS
-Database object mapper (ORM / ODM) for all types of databases (SQL, NoSQL).
+UniMapper is universal Node.js (native ES6/ES7) object mapper (ORM/ODM) which can map whatever you create adapter for.
 
 
 !! Early DEVELOPMENT !!
@@ -11,9 +11,11 @@ Database object mapper (ORM / ODM) for all types of databases (SQL, NoSQL).
 - more connections across adapters (eg. take data from MongoDB or two MongoDBs and insert it into MySQL),
 - unit of work - tracking changes in transactions,
 - updating just changed properties - saving resources,
+- quering like C# LINQ
 
 
 ## Working
 - migrations
 - data inserts
 - unit of work for inserts
+
