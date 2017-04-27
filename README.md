@@ -1,8 +1,9 @@
 # UniMapperJS
 UniMapper is universal Node.js (native ES6/ES7) object mapper (ORM/ODM) which can map whatever you create adapter for.
 
-
 !! Early DEVELOPMENT !!
+
+Core almost done. It'll be finished in one week.
 
 See [wiki](https://github.com/Hookyns/unimapperjs/wiki)
 
@@ -13,11 +14,10 @@ See [wiki](https://github.com/Hookyns/unimapperjs/wiki)
 - more connections across adapters (eg. take data from MongoDB or two MongoDBs and insert it into MySQL),
 - unit of work - tracking changes in transactions,
 - updating just changed properties - saving resources,
-- quering like C# LINQ
+- quering like C# LINQ (with JS function names)
 
 
-## Working
-- migrations
-- data inserts
-- unit of work for inserts
+## TODO
+- Finish method**where**in**Query**,
+- add foreign keys
 
