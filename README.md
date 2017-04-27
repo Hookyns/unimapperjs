@@ -4,6 +4,8 @@ UniMapper is universal Node.js (native ES6/ES7) object mapper (ORM/ODM) which ca
 
 !! Early DEVELOPMENT !!
 
+See [wiki](https://github.com/Hookyns/unimapperjs/wiki)
+
 
 ## Main Features
 - Adapters - if your database isn't supported, you can write own adapter,
