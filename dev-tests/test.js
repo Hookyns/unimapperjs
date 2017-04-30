@@ -47,7 +47,8 @@ const Comment = domain.createEntity("Comment", {
 		greaterThen: 5,
 		lessThen: -5,
 		inValues: [1, 2, 3],
-		endWith: "r"
+		endWith: "r",
+		findLipsum: true
 	};
 
 	filter.created.setFullYear(2016);
@@ -55,6 +56,7 @@ const Comment = domain.createEntity("Comment", {
 	var comments = await Comment.getAll()
 	.where(e => e.created > $ && e.text && (e.author.endsWith($) || e.author.startsWith($))
 		, filter.created, filter.endWith, filter.startWith)
+	.whereIf(e => e.text.includes("ipsum"), filter.findLipsum)
 	.orderBy("author")
 	.limit(10)
 	.skip(0)

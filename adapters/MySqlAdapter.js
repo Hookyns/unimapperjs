@@ -394,6 +394,8 @@ class MySqlAdapter {
 
 		query += ";";
 
+		// console.log(query);
+
 		var result = await conn.query(query);
 		this.logQuery(result[2].sql, null);
 		await conn.release();

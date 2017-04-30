@@ -128,7 +128,7 @@ function splitGroupsByLogicalOperators(groups, entityRegExp, nested = false) {
  * @returns {Array}
  */
 function describeExpressionParts(parts, exprPartRegExp) {
-	var result = [], match, desc, fields;
+	var result = [], match, desc, fields, func, arg;
 	for (let part of parts) {
 		if (part.constructor == Array) {
 			result.push(describeExpressionParts(part, exprPartRegExp));
@@ -137,10 +137,22 @@ function describeExpressionParts(parts, exprPartRegExp) {
 				result.push(part);
 			} else if (match = part.match(exprPartRegExp)) {
 				fields = match[1].split(".");
+				func = (match[2] ? fields[fields.length - 1] : (match[3] || "exists"));
+
+				if (func == "==") {
+					func = "=";
+				}
+
+				arg = match[2] || match[4];
+
+				if (arg && arg.charAt(0) == arg.charAt(arg.length - 1) && (arg.charAt(0) == "'" || arg.charAt(0) == '"')) {
+					arg = arg.slice(1, -1);
+				}
+
 				desc = {
 					field: match[2] ? fields.slice(0, -1).join(".") : fields.join("."),
-					func: (match[2] ? fields[fields.length - 1] : (match[3] || "exists")).toLowerCase(),
-					arg: match[2] || match[4]
+					func: func.toLowerCase(),
+					arg: arg
 				};
 
 				result.push(desc);
@@ -384,6 +396,11 @@ class Query {
 		if (!fromCacheMap) {
 			var expr = convertWhereExpr(expression);
 			var exprs = expr.expr;
+
+			// If some coditions already exists, add this WHERE as AND
+			if (this.conditions.length != 0) {
+				expr.desc.unshift("and");
+			}
 
 			let $i = this.whereArgs - 1;
 			let filter = "return " + expr.entity + " => " + exprs.replace(/([^\\]|^)(\$)/g, function (_, before) {
