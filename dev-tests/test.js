@@ -16,7 +16,7 @@ const domain = $um.createDomain(require("./../adapters/MySqlAdapter"), {
  * @extends UniMapperEntity
  */
 const Article = domain.createEntity("Article", {
-	name: type.string.length(100).default("kokot co nevyplnil jméno"),
+	name: type.string.length(100).default("Anonym"),
 	email: type.string.length(100).unique(),
 	password: type.string.length(40),
 	created: type.date.now(),
@@ -40,34 +40,35 @@ const Comment = domain.createEntity("Comment", {
 
 	var valsIn = [1, 2, 3];
 
-	// Nějaký filtr, který třeba přijde od klienta
+	// Some filter from client eg.
 	var filter = {
-		name: "o",
+		created: new Date(),
+		startWith: "T",
 		greaterThen: 5,
 		lessThen: -5,
-		inValues: [1, 2, 3]
+		inValues: [1, 2, 3],
+		endWith: "r"
 	};
+
+	filter.created.setFullYear(2016);
+
+	var comments = await Comment.getAll()
+	.where(e => e.created > $ && e.text && (e.author.endsWith($) || e.author.startsWith($))
+		, filter.created, filter.endWith, filter.startWith)
+	.orderBy("author")
+	.limit(10)
+	.skip(0)
+	// .select(e => e.author)
+	.exec();
+
+	console.log(domain.__adapter.executedQueries);
+	console.log("Comments:\n", comments);
 
 
 	// var comment = await Comment.getById("129aa0c0-29c1-11e7-9bed-ad64d70c0265");
 	// console.log(comment);
 	// await Comment.remove(comment);
 	// console.log(domain.__adapter.executedQueries);
-
-
-
-	// class Foo {
-	// 	constructor(data) {
-	// 		this.data = data;
-	// 	}
-	// }
-
-	var comments = await Comment.getAll().where(e => e.author.endsWith("ylor"),
-		filter.name, filter.greaterThen, filter.lessThen, filter.inValues
-	).orderByDescending("created").limit(1).skip(14).exec();
-
-	console.log(domain.__adapter.executedQueries);
-	console.log("Comments", comments);
 
 	// var article = await Article.getAll().where(e => e.name.indexOf($) != -1 && (e.foo > $ || e.foo < $) || e.foo in $,
 	// 	filter.name, filter.greaterThen, filter.lessThen, filter.inValues
@@ -95,17 +96,12 @@ const Comment = domain.createEntity("Comment", {
 	// console.log("Aticle", article);
 
 
-
-
-
-
 	// repository.getAll.where(e => e.name == $ && (e.foo > $ || e.foo < $) || e.foo in $,
 	// 	filter.name, filter.greaterThen, filter.lessThen, filter.inValues
 	// );
 
 	// Což by po překladu na SQL bylo
 	// SELECT * FROM somewhere WHERE name = 'Test' AND (foo > 5 OR foo < -5) OR foo IN (1,2,3)
-
 
 
 	// var x = {
@@ -140,7 +136,6 @@ const Comment = domain.createEntity("Comment", {
 	// await comment.save();
 
 
-
 	// try {
 	//
 	// 	await $uow.create(async uow => {
@@ -172,7 +167,7 @@ const Comment = domain.createEntity("Comment", {
 	// 	console.error(e);
 	// }
 
-})().catch(function(e) {
+})().catch(function (e) {
 	console.error(e.stack);
 }).then(function () {
 	domain.dispose();

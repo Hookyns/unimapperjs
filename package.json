@@ -1,7 +1,7 @@
 {
   "name": "unimapperjs",
   "version": "0.0.1",
-  "description": "Universal database object mapper",
+  "description": "Universal node.js (native ES6/ES7) object mapper (ORM / ODM) for all types of databases (SQL, NoSQL)",
   "author": {
     "name": "Roman Jámbor",
     "email": "hookcze@gmail.com"
@@ -17,7 +17,10 @@
     "mongodb",
     "mysql",
     "postgre",
-    "mssql"
+    "mssql",
+    "linq",
+    "domain",
+    "entities"
   ],
   "license": "MIT",
   "engines": {

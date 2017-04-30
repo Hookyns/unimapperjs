@@ -133,11 +133,13 @@ function buildWhereCondition(conditions) {
 			} else if (cond.func == "<=") {
 				query += cond.field + ` <= ${escapeSqlString(cond.arg)}`;
 			} else if (cond.func == "includes") {
-				query += cond.field + ` LIKE %${escapeSqlString(cond.arg)}%`;
+				query += cond.field + ` LIKE ${escapeSqlString("%" + cond.arg + "%")}`;
 			} else if (cond.func == "startswith") {
-				query += cond.field + ` LIKE ${escapeSqlString(cond.arg)}%`;
+				query += cond.field + ` LIKE ${escapeSqlString(cond.arg + "%")}`;
 			} else if (cond.func == "endswith") {
-				query += cond.field + ` LIKE %${escapeSqlString(cond.arg)}`;
+				query += cond.field + ` LIKE ${escapeSqlString("%" + cond.arg)}`;
+			} else if (cond.func == "exists") {
+				query += cond.field + " IS NOT NULL";
 			} else {
 				throw new Error(`Unsupported function operator '${cond.func}' found in query`);
 			}
@@ -393,11 +395,8 @@ class MySqlAdapter {
 		query += ";";
 
 		var result = await conn.query(query);
-
 		this.logQuery(result[2].sql, null);
-
 		await conn.release();
-
 		return result[0];
 	}
 

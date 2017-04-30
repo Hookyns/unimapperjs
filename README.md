@@ -14,10 +14,10 @@ See [wiki](https://github.com/Hookyns/unimapperjs/wiki)
 - more connections across adapters (eg. take data from MongoDB or two MongoDBs and insert it into MySQL),
 - unit of work - tracking changes in transactions,
 - updating just changed properties - saving resources,
-- quering like C# LINQ (with JS function names)
+- quering like C# LINQ to Entities (with JS function names)
 
 
 ## TODO
-- Finish method**where**in**Query**,
 - add foreign keys
+
 
