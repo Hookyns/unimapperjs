@@ -58,16 +58,16 @@ function getDbType(field) {
  * @returns {Object}
  */
 function getCodeTypeDesc(dbDesc) {
-	var dbType = dbDesc['Type'];
-	var type;
+	let dbType = dbDesc['Type'];
+	let type;
 
 	if (/(char)|(text)/.test(dbType)) {
 		type = Types.String;
-	} else if (dbType == "tinyint(1)") {
+	} else if (dbType === "tinyint(1)") {
 		type = Types.Boolean;
 	} else if (/(tinyint)|(smallint)|(mediumint)|(int)|(bigint)|(numeric)|(float)|(double)|(decimal)/.test(dbType)) {
 		type = Types.Number;
-	} else if (dbType == "datetime") {
+	} else if (dbType === "datetime") {
 		type = Types.Date;
 	}
 
@@ -77,11 +77,11 @@ function getCodeTypeDesc(dbDesc) {
 
 		return {
 			type: type,
-			nullable: dbDesc['Null'] == "YES",
+			nullable: dbDesc['Null'] === "YES",
 			length: /*type != Types.Boolean && */lengthMatch ? ~~lengthMatch[1] : null,
-			primary: dbDesc['Key'] == "PRI",
-			unique: dbDesc['Key'] == "UNI"/* || dbDesc['Key'] == "PRI"*/,
-			autoIncrement: !!(dbDesc['Extra'] && dbDesc['Extra'].indexOf("auto_increment") != -1),
+			primary: dbDesc['Key'] === "PRI",
+			unique: dbDesc['Key'] === "UNI"/* || dbDesc['Key'] == "PRI"*/,
+			autoIncrement: !!(dbDesc['Extra'] && dbDesc['Extra'].indexOf("auto_increment") !== -1),
 			decimals: decimalMatch ? ~~decimalMatch[1] : null,
 			"default": dbDesc['Default']
 		}
@@ -109,50 +109,43 @@ function fieldDesc(name, description) {
 }
 
 /**
+ * List of function mapped to actions
+ */
+const whereBuildActions = {
+	"=": (field, val) => escapeIdSqlString(field) + ` = ${escapeSqlString(val)}`,
+	">": (field, val) => escapeIdSqlString(field) + ` > ${escapeSqlString(val)}`,
+	">=": (field, val) => escapeIdSqlString(field) + ` >= ${escapeSqlString(val)}`,
+	"<": (field, val) => escapeIdSqlString(field) + ` < ${escapeSqlString(val)}`,
+	"<=": (field, val) => escapeIdSqlString(field) + ` <= ${escapeSqlString(val)}`,
+	"includes": (field, val) => escapeIdSqlString(field) + ` LIKE ${escapeSqlString("%" + val + "%")}`,
+	"startswith": (field, val) => escapeIdSqlString(field) + ` LIKE ${escapeSqlString(val + "%")}`,
+	"endswith": (field, val) => escapeIdSqlString(field) + ` LIKE ${escapeSqlString("%" + val)}`,
+	"exists": (field, val) => escapeIdSqlString(field) + " IS NOT NULL",
+};
+
+/**
  * Create SQL WHERE condition
  * @param {Array} conditions
  * @returns {string}
  */
 function buildWhereCondition(conditions) {
-	var query = "";
+	let query = "", cond;
 
-	for (var c = 0; c < conditions.length; c++) {
-		let cond = conditions[c];
+	for (let c = 0; c < conditions.length; c++) {
+		cond = conditions[c];
 
-		if (cond.constructor == Object) {
-			if (cond.func == "=") {
-				query += cond.field + ` = ${escapeSqlString(cond.arg)}`;
-			} else if (cond.func == "!=") {
-				query += cond.field + ` != ${escapeSqlString(cond.arg)}`;
-			} else if (cond.func == ">") {
-				query += cond.field + ` > ${escapeSqlString(cond.arg)}`;
-			} else if (cond.func == ">=") {
-				query += cond.field + ` >= ${escapeSqlString(cond.arg)}`;
-			} else if (cond.func == "<") {
-				query += cond.field + ` < ${escapeSqlString(cond.arg)}`;
-			} else if (cond.func == "<=") {
-				query += cond.field + ` <= ${escapeSqlString(cond.arg)}`;
-			} else if (cond.func == "includes") {
-				query += cond.field + ` LIKE ${escapeSqlString("%" + cond.arg + "%")}`;
-			} else if (cond.func == "startswith") {
-				query += cond.field + ` LIKE ${escapeSqlString(cond.arg + "%")}`;
-			} else if (cond.func == "endswith") {
-				query += cond.field + ` LIKE ${escapeSqlString("%" + cond.arg)}`;
-			} else if (cond.func == "exists") {
-				query += cond.field + " IS NOT NULL";
-			} else {
-				throw new Error(`Unsupported function operator '${cond.func}' found in query`);
-			}
-		} else if (cond.constructor == Array) {
+		if (cond.constructor === Object) {
+			let action = whereBuildActions[cond.func];
+			if (!action) throw new Error(`Unsupported function operator '${cond.func}' found in query`);
+			query += action(cond.field, cond.arg);
+		} else if (cond.constructor === Array) {
 			query += "(" + buildWhereCondition(cond) + ")";
-		} else if (cond.constructor == String) {
-			if (cond == "and") {
-				query += " AND ";
-			} else if (cond == "or") {
-				query += " OR ";
-			} else {
+		} else if (cond.constructor === String) {
+			if (cond !== "and" && cond !== "or") {
 				throw new Error(`Unsupported logical operator '${cond}' found in query`);
 			}
+
+			query += " " + cond.toUpperCase() + " ";
 		}
 	}
 
@@ -215,6 +208,7 @@ class MySqlAdapter {
 		return await this.pool.getConnection();
 	}
 
+	// noinspection JSUnusedGlobalSymbols, JSMethodCanBeStatic
 	/**
 	 * Start transaction
 	 * @param connection
@@ -223,6 +217,7 @@ class MySqlAdapter {
 		await connection.query("START TRANSACTION;");
 	}
 
+	// noinspection JSUnusedGlobalSymbols, JSMethodCanBeStatic
 	/**
 	 * Rollback changes
 	 * @param connection
@@ -231,6 +226,7 @@ class MySqlAdapter {
 		await connection.query("ROLLBACK;")
 	}
 
+	// noinspection JSUnusedGlobalSymbols, JSMethodCanBeStatic
 	/**
 	 * Commit changes
 	 * @param connection
@@ -247,15 +243,15 @@ class MySqlAdapter {
 	 * @returns {UniMapperEntity}
 	 */
 	async insert(entity, data, connection) {
-		var conn = connection || await this.getConnection();
+		const conn = connection || await this.getConnection();
 
-		var query = "INSERT INTO " + entity.constructor.name + " (";
+		let query = "INSERT INTO " + entity.constructor.name + " (";
 
-		var keys = Object.keys(data);
-		var args = [];
-		var vals = "";
+		let keys = Object.keys(data);
+		let args = [];
+		let vals = "";
 
-		for (var i = 0; i < keys.length; i++) {
+		for (let i = 0; i < keys.length; i++) {
 			// Column
 			query += keys[i];
 
@@ -271,13 +267,13 @@ class MySqlAdapter {
 
 		query += ") VALUES (" + vals + ");";
 
-		var preResult;
-		var result = await (preResult = conn.query(query, args));
+		let preResult;
+		let result = await (preResult = conn.query(query, args));
 
 		this.logQuery(result[2].sql, null);
 
-		var idDescription = entity.constructor.getDescription().id;
-		if (idDescription.type == Types.Number && idDescription.autoIncrement && result[0]) {
+		let idDescription = entity.constructor.getDescription().id;
+		if (idDescription.type === Types.Number && idDescription.autoIncrement && result[0]) {
 			// Add id directly to __propeties - avoid marking ID as changed
 			entity.__properties.id = result[0].insertId;
 		}
@@ -295,8 +291,8 @@ class MySqlAdapter {
 	 * @param [connection]
 	 */
 	async update(entity, data, where = {}, connection) {
-		var conn = connection || await this.getConnection();
-		var result = await conn.query(`UPDATE ${entity.name} SET ? WHERE ?;`, [data, where]);
+		const conn = connection || await this.getConnection();
+		let result = await conn.query(`UPDATE ${entity.name} SET ? WHERE ?;`, [data, where]);
 		this.logQuery(result[2].sql, null);
 		if (!connection) await conn.release();
 	}
@@ -308,8 +304,8 @@ class MySqlAdapter {
 	 * @param [connection]
 	 */
 	async remove(entity, where = {}, connection) {
-		var conn = connection || await this.getConnection();
-		var result = await conn.query(`DELETE FROM ${entity.name} WHERE ?;`, [where]);
+		const conn = connection || await this.getConnection();
+		let result = await conn.query(`DELETE FROM ${entity.name} WHERE ?;`, [where]);
 		this.logQuery(result[2].sql, null);
 		if (!connection) await conn.release();
 	}
@@ -345,17 +341,17 @@ class MySqlAdapter {
 			order = [];
 		}
 
-		var conn = await this.getConnection();
+		const conn = await this.getConnection();
 
-		var sel = "";
+		let sel = "";
 		if (select.length > 0) {
-			for (var s = 0; s < select.length; s++) {
-				if (s != 0) sel += ", ";
+			for (let s = 0; s < select.length; s++) {
+				if (s !== 0) sel += ", ";
 
-				if (select[s].constructor == Object) {
+				if (select[s].constructor === Object) {
 					let obj = select[s];
 
-					if (obj.func == "count") {
+					if (obj.func === "count") {
 						sel += `COUNT(${obj.arg || "*"}) AS count`;
 					} else {
 						throw new Error(`Unsupported function '${obj.func}' found in query`);
@@ -368,7 +364,7 @@ class MySqlAdapter {
 			sel = "*";
 		}
 
-		var query = `SELECT ${sel} FROM ${entity.name}`;
+		let query = `SELECT ${sel} FROM ${entity.name}`;
 
 		if (conditions.length > 0) {
 			query += " WHERE " + buildWhereCondition(conditions);
@@ -380,7 +376,7 @@ class MySqlAdapter {
 			for (let or = 0; or < order.length; or++) {
 				// escapeSqlString() just for sure if somebody take field from client
 				query += (or != 0 ? ", " : "") + escapeIdSqlString(order[or].field) + " "
-					+ (order[or].order == "desc" ? "DESC" : "ASC");
+					+ (order[or].order === "desc" ? "DESC" : "ASC");
 			}
 		}
 
@@ -396,7 +392,7 @@ class MySqlAdapter {
 
 		// console.log(query);
 
-		var result = await conn.query(query);
+		let result = await conn.query(query);
 		this.logQuery(result[2].sql, null);
 		await conn.release();
 		return result[0];
@@ -429,10 +425,10 @@ class MySqlAdapter {
 	 */
 	async getListOfEntities() {
 		try {
-			var conn = await this.getConnection();
-			var result = await conn.query("SHOW TABLES;");
-			var nameIndex = Object.keys(result[0][0])[0];
-			var out = [];
+			const conn = await this.getConnection();
+			let result = await conn.query("SHOW TABLES;");
+			let nameIndex = Object.keys(result[0][0])[0];
+			let out = [];
 
 			for (let row of result[0]) {
 				out.push(row[nameIndex]);
@@ -467,12 +463,27 @@ class MySqlAdapter {
 		 */
 
 		try {
-			var conn = await this.getConnection();
-			var result = await conn.query("DESCRIBE ??", [tableName]);
-			var out = {};
+			const conn = await this.getConnection();
+			let result = await conn.query("DESCRIBE ??", [tableName]);
+			let out = {};
+			let indexes = await conn.query("SHOW INDEXES IN ??", [tableName]);
+
+			indexes = indexes[0].map((el) => {
+				return {
+					field: el["Column_name"],
+					name: el["Key_name"],
+					unique: !el["Non_unique"],
+					seq: el["Seq_in_index"]
+				}
+			});
 
 			for (let row of result[0]) {
 				out[row['Field']] = getCodeTypeDesc(row);
+
+				// Add indexes
+				out[row['Field']].indexes = indexes.filter((el) => {
+					return el.field === row['Field'];
+				});
 			}
 
 			await conn.release();
@@ -490,10 +501,10 @@ class MySqlAdapter {
 	 */
 	async createEntity(name, fields) {
 		try {
-			var conn = await this.getConnection();
-			var query = "CREATE TABLE `" + name + "` (\n";
-			var toEnd = [];
-			var f;
+			const conn = await this.getConnection();
+			let query = "CREATE TABLE `" + name + "` (\n";
+			const toEnd = [];
+			let f;
 
 			for (let field in fields) {
 				if (fields.hasOwnProperty(field)) {
@@ -505,7 +516,7 @@ class MySqlAdapter {
 				}
 			}
 
-			if (query[query.length - 1] == ",") {
+			if (query[query.length - 1] === ",") {
 				query = query.slice(0, query.length - 2);
 			}
 
@@ -526,8 +537,8 @@ class MySqlAdapter {
 	 */
 	async removeEntity(entityName) {
 		try {
-			var conn = await this.getConnection();
-			var query = `DROP TABLE ${entityName};`;
+			const conn = await this.getConnection();
+			let query = `DROP TABLE ${entityName};`;
 
 			console.log("Executing SQL: ", query);
 
@@ -546,8 +557,8 @@ class MySqlAdapter {
 	 */
 	async addField(entityName, fieldName, description) {
 		try {
-			var conn = await this.getConnection();
-			var query = `ALTER TABLE ${entityName} ADD ${fieldDesc(fieldName, description)} ${description.unique
+			const conn = await this.getConnection();
+			let query = `ALTER TABLE ${entityName} ADD ${fieldDesc(fieldName, description)} ${description.unique
 				? `, ADD UNIQUE KEY unique_index_${entityName}_${fieldName} (${fieldName})` : ""} ${description.primary
 				? `, ADD PRIMARY KEY (${fieldName})` : ""};`;
 
@@ -567,8 +578,8 @@ class MySqlAdapter {
 	 */
 	async removeField(entityName, fieldName) {
 		try {
-			var conn = await this.getConnection();
-			var query = `ALTER TABLE ${entityName} DROP COLUMN ${fieldName};`;
+			const conn = await this.getConnection();
+			let query = `ALTER TABLE ${entityName} DROP COLUMN ${fieldName};`;
 
 			console.log("Executing SQL: ", query);
 
@@ -580,31 +591,75 @@ class MySqlAdapter {
 	}
 
 	/**
-	 * Cange existing field in entity
+	 * Change existing field in entity
 	 * @param {String} entityName
 	 * @param {String} fieldName
 	 * @param {{type: String, nullable: Boolean, length: Number, decimals: Number, primary: Boolean, unique: Boolean, autoIncrement: Boolean}} description
 	 */
 	async changeField(entityName, fieldName, description) {
 		try {
-			var conn = await this.getConnection();
-			var mod = "";
+			const conn = await this.getConnection();
+			let mod = "";
 
+			// noinspection EqualityComparisonWithCoercionJS, JSValidateTypes
 			if (description.type != undefined || description.decimals != undefined || description.length != undefined
 				|| description.nullable != undefined || description.autoIncrement != undefined
 			) {
 				mod = "MODIFY " + fieldDesc(fieldName, description) + ", ";
 			}
 
-			var query = `ALTER TABLE ${entityName} ${mod} ${description.unique
+			let query = `ALTER TABLE ${entityName} ${mod} ${description.unique
 				? `ADD UNIQUE KEY unique_index_${entityName}_${fieldName} (${fieldName}), ` : ""} ${description.primary
 				? `ADD PRIMARY KEY (${fieldName})` : ""}`.trim();
 
-			if (query.slice(-1) == ",") {
+			if (query.slice(-1) === ",") {
 				query = query.slice(0, -1);
 			}
 
 			query += ";";
+
+			console.log("Executing SQL: ", query);
+
+			await conn.query(query);
+			await conn.release();
+		} catch (e) {
+			console.error(e.stack);
+		}
+	}
+
+	/**
+	 *
+	 * @param {String} entityName
+	 * @param {String} fieldName
+	 * @param {String} foreignEntity
+	 * @param {String} fkName
+	 */
+	async addForeignKey(entityName, fieldName, foreignEntity, fkName) {
+		try {
+			const conn = await this.getConnection();
+
+			let query = `ALTER TABLE ${entityName} ADD CONSTRAINT \`${fkName}\``
+				+ ` FOREIGN KEY (${fieldName}) REFERENCES ${foreignEntity}(id);`;
+
+			console.log("Executing SQL: ", query);
+
+			await conn.query(query);
+			await conn.release();
+		} catch (e) {
+			console.error(e.stack);
+		}
+	}
+
+	/**
+	 * Removes given foreign key from given table
+	 * @param {String} entityName
+	 * @param {String} fkName
+	 */
+	async removeForeignKey(entityName, fkName) {
+		try {
+			const conn = await this.getConnection();
+
+			let query = `ALTER TABLE ${entityName} DROP FOREIGN KEY \`${fkName}\`;`;
 
 			console.log("Executing SQL: ", query);
 
@@ -626,8 +681,8 @@ class MySqlAdapter {
 	 * @param [connection]
 	 */
 	async query(query, params = [], connection) {
-		var conn = connection || await this.getConnection();
-		var result = await conn.query(query, params);
+		const conn = connection || await this.getConnection();
+		let result = await conn.query(query, params);
 		this.logQuery(result[2].sql, null);
 		if (!connection) await conn.release();
 		return result[0];
@@ -636,6 +691,7 @@ class MySqlAdapter {
 	// </editor-fold>
 
 	//<editor-fold desc="Private Methods">
+
 	/**
 	 * Add query to list
 	 * @param {String} query

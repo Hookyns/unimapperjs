@@ -1,7 +1,7 @@
 {
   "name": "unimapperjs",
   "version": "0.0.2",
-  "description": "Universal node.js (native ES6/ES7) object mapper (ORM / ODM) for all types of databases (SQL, NoSQL)",
+  "description": "Universal node.js (native ES6/ES7) object mapper (ORM / ODM) for all types of databases (SQL, NoSQL). Written in TS, contains TS and generated JS and TS definitons.",
   "author": {
     "name": "Roman Jámbor",
     "email": "hookcze@gmail.com"
@@ -23,17 +23,25 @@
     "entities"
   ],
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "http://github.com/Hookyns/unimapperjs.git"
+  },
   "engines": {
     "node": ">=7.7.0"
   },
   "devDependencies": {
-    "mysql2": "latest"
+    "@types/node": "^8.0.34",
+    "mocha": "^4.0.1",
+    "mocha-junit-reporter": "^1.15.0",
+    "mysql2": "latest",
+    "typescript": "^2.5.3"
   },
   "dependencies": {
     "json-prettify": "^1.2.0",
     "uuid": "^3.0.1"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "mocha --reporter mocha-junit-reporter"
   }
 }

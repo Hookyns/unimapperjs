@@ -3,18 +3,19 @@
  * @author Roman Jámbor
  */
 
-const StringType = require("./src/types/String");
-const NumberType = require("./src/types/Number");
-const BooleanType = require("./src/types/Boolean");
-const DateType = require("./src/types/Date");
-const UuidType = require("./src/types/Uuid");
-const Domain = require("./src/Domain");
+const {StringType} = require("./src/types/StringType");
+const {NumberType} = require("./src/types/NumberType");
+const {BooleanType} = require("./src/types/BooleanType");
+const {DateType} = require("./src/types/DateType");
+const {UuidType} = require("./src/types/UuidType");
+const {ForeignType} = require("./src/types/ForeignType");
+const {Domain} = require("./src/Domain");
 
 /**
  * Object with type returning getters
  * @type {{string: StringType, number: NumberType, boolean: BooleanType, date: DateType, uuid: UuidType}}
  */
-var type = {
+const type = {
 	/** @type StringType */
 	string: null,
 	/** @type NumberType */
@@ -62,14 +63,20 @@ Object.defineProperty(type, "uuid", {
 	}
 });
 
+// ForeignType
+Object.defineProperty(type, "foreign", {
+	value: function (entity) {
+		return new ForeignType(entity);
+	}
+});
 
 module.exports = {
 	type: type,
 
-	/**
-	 * @type {UnitOfWork}
-	 */
-	UnitOfWork: require("./src/UnitOfWork"),
+	// /**
+	//  * @type {UnitOfWork}
+	//  */
+	// UnitOfWork: require("./src/UnitOfWork"),
 
 	/**
 	 *
