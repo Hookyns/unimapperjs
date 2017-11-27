@@ -1,15 +1,14 @@
 const $um = require("./../index");
 const type = $um.type;
 const domain = require("./domain");
-const Entity = require("../src/Entity");
+// const Entity = require("../src/Entity");
 
 /**
  * Define Employee entity in domain
  * @class Employee
- * @extends UniMapperEntity
  * @ type {Function<Entity<Employee>>}
  */
-const Employee = domain.createEntity("Employee", {
+exports.Employee = domain.createEntity("Employee", {
 	firstName: type.string.length(50),
 	lastName: type.string.length(50),
 	email: type.string.length(100).unique(),
@@ -20,8 +19,6 @@ const Employee = domain.createEntity("Employee", {
 	enterpriseId: type.number,
 	enterprise: type.foreign("Enterprise").withForeign("enterpriseId")
 });
-
-module.exports = Employee;
 
 
 

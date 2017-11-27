@@ -1,19 +1,14 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const Query_1 = require("./Query");
+const Type_1 = require("./Type");
 const NumberType_1 = require("./types/NumberType");
 class Entity {
-    constructor(idType = null) {
+    constructor(data, selected = false) {
         this.__changedProperties = [];
         this.__deleted = false;
-        if (idType !== null)
-            this.constructor._description.id = idType;
-        const defaultData = this.getDefaultValues();
-        for (let p in defaultData) {
-            if (defaultData.hasOwnProperty(p)) {
-                this[p] = defaultData[p]();
-            }
-        }
+        this.__properties = data || {};
+        this.__changedProperties = !!data && !selected ? Object.keys(data) : [];
     }
     static addUnique(...fields) {
         console.warn("Entity.addUnique() not implemented yet!");
@@ -28,7 +23,7 @@ class Entity {
         if (entity.__properties.id > 0) {
             throw new Error("This entity already exists");
         }
-        await this.domain.__adapter.insert(entity, entity.__properties, connection);
+        await this.domain.__adapter.insert(entity, entity.getData(), connection);
     }
     static async remove(entity, connection) {
         if (!(entity instanceof Entity)) {
@@ -68,6 +63,16 @@ class Entity {
         }
         return entity;
     }
+    getData() {
+        const desc = this.constructor._description;
+        const rtrn = {}, props = this.__properties;
+        for (let p in props) {
+            if (props.hasOwnProperty(p) && desc[p].description.type !== Type_1.Type.Types.Virtual) {
+                rtrn[p] = props[p];
+            }
+        }
+        return rtrn;
+    }
     select(...fields) {
         const outObj = {};
         if (!fields) {
@@ -101,31 +106,6 @@ class Entity {
             }
         }
         return this;
-    }
-    getDefaultValues() {
-        const ctor = this.constructor;
-        console.log(ctor, ctor._description);
-        if (ctor._defaultData) {
-            return ctor._defaultData;
-        }
-        const defaultData = {};
-        const properties = ctor._description;
-        for (let prop in properties) {
-            if (properties.hasOwnProperty(prop)) {
-                let defVal = properties[prop].getDescription().default;
-                let defValFunc;
-                if (typeof defVal !== "function") {
-                    defValFunc = function () {
-                        return defVal;
-                    };
-                }
-                else {
-                    defValFunc = defVal;
-                }
-                defaultData[prop] = defValFunc;
-            }
-        }
-        return defaultData;
     }
 }
 Entity.domain = null;

@@ -46,7 +46,7 @@ function allPropertiesToLowerCase(obj) {
  * List of all created createdEntities
  * @type {Array}
  */
-const createdEntities = [];
+const createdEntities: Array<typeof Entity> = [];
 
 
 export class Domain {
@@ -80,63 +80,37 @@ export class Domain {
 
     //<editor-fold desc="Public Methods">
 
-    // /**
-    //  * Create new entity schema / domain model
-    //  * @param {String} name
-    //  * @param {Object<Type>} properties
-    //  * @param {Type} [idType]
-    //  * @returns {Function}
-    //  */
-    // createEntity(name, properties, idType = null): typeof Entity {
-    //     if (properties.constructor !== Object) {
-    //         throw new Error("Parameter 'properties' is not Object.");
-    //     }
-    //
-    //     // Define ID
-    //     if (!properties.hasOwnProperty("id")) {
-    //         if (!idType) {
-    //             idType = new NumberType().primary().autoIncrement();
-    //         }
-    //
-    //         // Add id; assign used to create new object with id on first place,
-    //         // otherwise it'll be last column
-    //         properties = (<any>Object).assign({
-    //             id: idType
-    //         }, properties);
-    //     } else {
-    //         console.warn(`WARN You define custom id in entity ${name}. `
-    //             + `Use third parameter of Domain.createEntity() to change native id type.`);
-    //     }
-    //
-    //     const defaultData = this.getDefaultValues(properties);
-    //     const entity = this.extendEntity(defaultData);
-    //
-    //     this.addEntityClassInfo(entity, name, properties);
-    //     this.proxifyEntityProperties(properties, entity);
-    //
-    //     createdEntities.push(entity);
-    //
-    //     return entity;
-    // }
-
     /**
-     * egister new entity in domain
+     * Create new entity schema / domain model
+     * @param {String} name
+     * @param {Object<Type>} properties
+     * @param {Type} [idType]
+     * @returns {Function}
      */
-    registerEntity(entity: typeof Entity) {
-        const instance: Entity<any> = new (<any>entity)();
-        const propNames = Object.getOwnPropertyNames(instance)
-            .filter(prop => prop.slice(0, 1) !== "_" && typeof instance[prop] !== "function");
-        const properties = propNames.map(propName => instance[propName]);
-        const ctor: typeof Entity = <any>entity.constructor;
-        const name = ctor.name;
+    createEntity(name, properties, idType = null): typeof Entity {
+        if (properties.constructor !== Object) {
+            throw new Error("Parameter 'properties' is not Object.");
+        }
 
-        // if (ctor.length > 0) {
-        //     console.warn(`WARN You should not use constructor's parameters in entity ${name}. `
-        //         + "UniMapperJS use those parameters internally.");
-        // }
+        // Define ID
+        if (!properties.hasOwnProperty("id")) {
+            if (!idType) {
+                idType = new NumberType().primary().autoIncrement();
+            }
 
-        // const defaultData = this.getDefaultValues(properties);
-        //entity = this.extendEntity(ctor, defaultData);
+            // Add id; assign used to create new object with id on first place,
+            // otherwise it'll be last column
+            properties = (<any>Object).assign({
+                id: idType
+            }, properties);
+        } else {
+            console.warn(`WARN You define custom id in entity ${name}. `
+                + `Use third parameter of Domain.createEntity() to change native id type.`);
+        }
+
+        const defaultData = this.getDefaultValues(properties);
+        const entity = this.extendEntity(defaultData);
+
         this.addEntityClassInfo(entity, name, properties);
         this.proxifyEntityProperties(properties, entity);
 
@@ -161,7 +135,7 @@ export class Domain {
      * @param entityName
      * @returns {*}
      */
-    getEntityByName(entityName: string) {
+    getEntityByName(entityName: string): typeof Entity {
         for (let e of createdEntities) {
             if (e.name === entityName && e.domain === this) return e;
         }
@@ -491,53 +465,33 @@ module.exports = {\n\tup: async function up(adapter) {\n`
 
     /**
      * Extend Entity class, making some constructor proxy
-     * @param {typeof Entity} ctor
-     * @param {{}} defaultData
-     * @returns {typeof Entity}
+     * @private
+     * @param defaultData
+     * @returns {Function}
      */
-    private extendEntity(ctor: typeof Entity, defaultData: {}): typeof Entity {
-        return <any>class X extends ctor<X> {
-            constructor(data: any = {}) {
-                super();
+    private extendEntity(defaultData): typeof Entity {
+        return <any>class X extends Entity<X> {
+            constructor(data, selected) {
+                const defData = {};
 
                 for (let p in defaultData) {
-                    if (data.hasOwnProperty(p)) {
-                        this[p] = data[p];
-                    } else if (defaultData.hasOwnProperty(p)) {
-                        this[p] = defaultData[p]();
+                    if (defaultData.hasOwnProperty(p)) {
+                        defData[p] = defaultData[p]();
                     }
                 }
+
+                if (data) {
+                    for (let p in data) {
+                        if (data.hasOwnProperty(p)) {
+                            defData[p] = data[p];
+                        }
+                    }
+                }
+
+                super(defData, selected);
             }
         };
     }
-
-    // /**
-    //  * Extend Entity class, making some constructor proxy
-    //  * @private
-    //  * @param defaultData
-    //  * @returns {Function}
-    //  */
-    // private extendEntity(defaultData): typeof Entity {
-    //     return <any>class X extends Entity<X> {
-    //         constructor(data, selected) {
-    //             const defData = {};
-    //
-    //             if (data) {
-    //                 for (let p in defaultData) {
-    //                     // noinspection JSUnfilteredForInLoop
-    //                     if (data.hasOwnProperty(p)) {
-    //                         // noinspection JSUnfilteredForInLoop
-    //                         defData[p] = data[p];
-    //                     } else if (defaultData.hasOwnProperty(p)) {
-    //                         defData[p] = defaultData[p]();
-    //                     }
-    //                 }
-    //             }
-    //
-    //             super(defData, selected);
-    //         }
-    //     };
-    // }
 
     /**
      * Add extra properties to Entity
@@ -570,11 +524,28 @@ module.exports = {\n\tup: async function up(adapter) {\n`
     private proxifyEntityProperties(properties, entity) {
         for (let propName in properties) {
             if (properties.hasOwnProperty(propName)) {
+                let desc = properties[propName].description;
+
                 Object.defineProperty(entity.prototype, propName, {
                     enumerable: true,
-                    get: function () {
+                    get: async function () {
                         // noinspection JSAccessibilityCheck
-                        return this.__properties[propName];
+                        let val = this.__properties[propName];
+
+                        // TODO: __properties budou načtené property nebo property po uložení. Změněná data ukládat do objektu zvlášť, který se pak bude dávat k uložení a nebude třeba data procházet a filtrovat
+                        // Vytvořit tedy jinou property, která data slouží až po uložení, aby bylo možné udělat rolback na entitě
+
+                        if (desc.type == Type.Types.Virtual && val == null) {
+                            if (desc.withForeign) {
+                                let fEtity: typeof Entity = this.domain.getEntityByName(desc.withForeign);
+
+                                if (fEtity) {
+                                    val = await fEtity.getById(this.__properties[desc.withForeign]);
+                                }
+                            }
+                        }
+
+                        return val;
                     },
                     set: function (value) {
                         // Change value
@@ -583,40 +554,41 @@ module.exports = {\n\tup: async function up(adapter) {\n`
                         // Mark change
                         // noinspection JSAccessibilityCheck
                         this.__changedProperties.push(propName);
+                        // this.__changedProps[propName] = value;
                     }
                 });
             }
         }
     }
 
-    // /**
-    //  * Return object with default property values
-    //  * @private
-    //  * @param properties
-    //  * @returns {{}}
-    //  */
-    // private getDefaultValues(properties) {
-    //     const defaultData = {};
-    //
-    //     for (let prop in properties) {
-    //         if (properties.hasOwnProperty(prop)) {
-    //             let defVal = properties[prop].getDescription().default;
-    //             let defValFunc;
-    //
-    //             if (typeof defVal !== "function") {
-    //                 defValFunc = function () {
-    //                     return defVal;
-    //                 }
-    //             } else {
-    //                 defValFunc = defVal;
-    //             }
-    //
-    //             defaultData[prop] = defValFunc;
-    //         }
-    //     }
-    //
-    //     return defaultData;
-    // }
+    /**
+     * Return object with default property values
+     * @private
+     * @param properties
+     * @returns {{}}
+     */
+    private getDefaultValues(properties: Array<Type<any>>) {
+        const defaultData = {};
+
+        for (let prop in properties) {
+            if (properties.hasOwnProperty(prop)) {
+                let defVal = (<any>properties[prop]).description.default;
+                let defValFunc;
+
+                if (typeof defVal !== "function") {
+                    defValFunc = function () {
+                        return defVal;
+                    }
+                } else {
+                    defValFunc = defVal;
+                }
+
+                defaultData[prop] = defValFunc;
+            }
+        }
+
+        return defaultData;
+    }
 
     //</editor-fold>
 }

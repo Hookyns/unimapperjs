@@ -1,13 +1,14 @@
 import { Query } from "./Query";
-import { Type } from "./Type";
 import { Domain } from "./Domain";
 export default abstract class Entity<TEntity extends Entity<any>> {
+    id: any;
     static domain: Domain;
     private static _description;
     private __properties;
     private __changedProperties;
+    private __changedProps;
     private __deleted;
-    constructor(idType?: Type<any>);
+    constructor(data: any, selected?: boolean);
     static addUnique(...fields: Array<string>): void;
     static addPrimary(...fields: Array<string>): void;
     static insert<TEntity extends Entity<any>>(entity: Entity<TEntity>, connection: any): Promise<void>;
@@ -17,8 +18,8 @@ export default abstract class Entity<TEntity extends Entity<any>> {
     static getDescription(): {};
     static seed(): Entity<any>[];
     static reconstructFrom(data: any): Entity<any>;
+    getData(): {};
     select(...fields: Array<string>): any;
     save(connection: any): Promise<void>;
     mapFrom(data: any): TEntity;
-    private getDefaultValues();
 }

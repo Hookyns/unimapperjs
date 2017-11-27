@@ -11,6 +11,11 @@ export default abstract class Entity<TEntity extends Entity<any>> {
     //<editor-fold desc="Fields">
 
     /**
+     * Entity identifier
+     */
+    id: any;
+
+    /**
      * Entity domain - set when entity created
      */
     static domain: Domain = null;
@@ -33,6 +38,11 @@ export default abstract class Entity<TEntity extends Entity<any>> {
     private __changedProperties: Array<string> = [];
 
     /**
+     * List of changed properties which will be saved
+     */
+    private __changedProps: { [key: string]: any; };
+
+    /**
      * Mark entity as deleted - just for some checks
      */
     private __deleted = false;
@@ -41,23 +51,10 @@ export default abstract class Entity<TEntity extends Entity<any>> {
 
     //<editor-fold desc="Ctor">
 
-    constructor(idType: Type<any> = null) {
-        if (idType !== null) (<typeof Entity>this.constructor)._description.id = idType;
-
-        // Set default data
-        const defaultData = this.getDefaultValues();
-
-        for (let p in defaultData) {
-            if (defaultData.hasOwnProperty(p)) {
-                this[p] = defaultData[p]();
-            }
-        }
+    constructor(data: any, selected: boolean = false) {
+        this.__properties = data || {};
+        this.__changedProperties = !!data && !selected ? Object.keys(data) : [];
     }
-
-    // constructor(data: any, selected: boolean = false) {
-    //     this.__properties = data || {};
-    //     this.__changedProperties = !!data && !selected ? Object.keys(data) : [];
-    // }
 
     //</editor-fold>
 
@@ -95,7 +92,7 @@ export default abstract class Entity<TEntity extends Entity<any>> {
             throw new Error("This entity already exists");
         }
 
-        await (<any>this.domain).__adapter.insert(entity, entity.__properties, connection);
+        await (<any>this.domain).__adapter.insert(entity, entity.getData(), connection);
     }
 
     // noinspection JSUnusedGlobalSymbols
@@ -187,6 +184,23 @@ export default abstract class Entity<TEntity extends Entity<any>> {
     //<editor-fold desc="Public Methods">
 
     /**
+     * Return object with raw data
+     * @returns {{}}
+     */
+    getData(): {} {
+        const desc = (<typeof Entity>this.constructor)._description;
+        const rtrn = {}, props = this.__properties;
+
+        for (let p in props) {
+            if (props.hasOwnProperty(p) && (<any>desc[p]).description.type !== Type.Types.Virtual) {
+                rtrn[p] = props[p];
+            }
+        }
+
+        return rtrn;
+    }
+
+    /**
      * Return new object with selected properties
      * @param {Array<String>} fields List of property names
      * @returns {{}}
@@ -252,46 +266,4 @@ export default abstract class Entity<TEntity extends Entity<any>> {
     }
 
     //</editor-fold>
-
-    //<editor-fold desc="Private Methods">
-
-    /**
-     * Return object with default property values
-     * @private
-     * @returns {{}}
-     */
-    private getDefaultValues() {
-        const ctor: typeof Entity = <any>this.constructor;
-        console.log(ctor, ctor._description);
-
-        // Check stored info on entity
-        if ((<any>ctor)._defaultData) {
-            return (<any>ctor)._defaultData;
-        }
-
-        const defaultData = {};
-        const properties = ctor._description;
-
-        for (let prop in properties) {
-            if (properties.hasOwnProperty(prop)) {
-                let defVal = properties[prop].getDescription().default;
-                let defValFunc;
-
-                if (typeof defVal !== "function") {
-                    defValFunc = function () {
-                        return defVal;
-                    }
-                } else {
-                    defValFunc = defVal;
-                }
-
-                defaultData[prop] = defValFunc;
-            }
-        }
-
-        return defaultData;
-    }
-
-    //</editor-fold>
-
 }

@@ -11,7 +11,7 @@
 "use strict";
 
 const mysql = require("mysql2");
-const Types = require("../src/Type").Types;
+const Types = require("../src/Type").Type.Types;
 const escapeSqlString = mysql.escape;
 const escapeIdSqlString = mysql.escapeId;
 

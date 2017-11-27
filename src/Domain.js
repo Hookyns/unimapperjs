@@ -1,6 +1,8 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+const Entity_1 = require("./Entity");
 const Type_1 = require("./Type");
+const NumberType_1 = require("./types/NumberType");
 const $path = require("path");
 const $fs = require("fs");
 const prettify = require("../node_modules/json-prettify/json2").stringify;
@@ -29,13 +31,24 @@ class Domain {
         this.__adapter = new adapter(connectionInfo);
         this.__connectionInfo = connectionInfo;
     }
-    registerEntity(entity) {
-        const instance = new entity();
-        const propNames = Object.getOwnPropertyNames(instance)
-            .filter(prop => prop.slice(0, 1) !== "_" && typeof instance[prop] !== "function");
-        const properties = propNames.map(propName => instance[propName]);
-        const ctor = entity.constructor;
-        const name = ctor.name;
+    createEntity(name, properties, idType = null) {
+        if (properties.constructor !== Object) {
+            throw new Error("Parameter 'properties' is not Object.");
+        }
+        if (!properties.hasOwnProperty("id")) {
+            if (!idType) {
+                idType = new NumberType_1.NumberType().primary().autoIncrement();
+            }
+            properties = Object.assign({
+                id: idType
+            }, properties);
+        }
+        else {
+            console.warn(`WARN You define custom id in entity ${name}. `
+                + `Use third parameter of Domain.createEntity() to change native id type.`);
+        }
+        const defaultData = this.getDefaultValues(properties);
+        const entity = this.extendEntity(defaultData);
         this.addEntityClassInfo(entity, name, properties);
         this.proxifyEntityProperties(properties, entity);
         createdEntities.push(entity);
@@ -218,18 +231,23 @@ module.exports = {\n\tup: async function up(adapter) {\n`
         }
         return tmpField;
     }
-    extendEntity(ctor, defaultData) {
-        return class X extends ctor {
-            constructor(data = {}) {
-                super();
+    extendEntity(defaultData) {
+        return class X extends Entity_1.default {
+            constructor(data, selected) {
+                const defData = {};
                 for (let p in defaultData) {
-                    if (data.hasOwnProperty(p)) {
-                        this[p] = data[p];
-                    }
-                    else if (defaultData.hasOwnProperty(p)) {
-                        this[p] = defaultData[p]();
+                    if (defaultData.hasOwnProperty(p)) {
+                        defData[p] = defaultData[p]();
                     }
                 }
+                if (data) {
+                    for (let p in data) {
+                        if (data.hasOwnProperty(p)) {
+                            defData[p] = data[p];
+                        }
+                    }
+                }
+                super(defData, selected);
             }
         };
     }
@@ -246,10 +264,20 @@ module.exports = {\n\tup: async function up(adapter) {\n`
     proxifyEntityProperties(properties, entity) {
         for (let propName in properties) {
             if (properties.hasOwnProperty(propName)) {
+                let desc = properties[propName].description;
                 Object.defineProperty(entity.prototype, propName, {
                     enumerable: true,
-                    get: function () {
-                        return this.__properties[propName];
+                    get: async function () {
+                        let val = this.__properties[propName];
+                        if (desc.type == Type_1.Type.Types.Virtual && val == null) {
+                            if (desc.withForeign) {
+                                let fEtity = this.domain.getEntityByName(desc.withForeign);
+                                if (fEtity) {
+                                    val = await fEtity.getById(this.__properties[desc.withForeign]);
+                                }
+                            }
+                        }
+                        return val;
                     },
                     set: function (value) {
                         this.__properties[propName] = value;
@@ -258,6 +286,25 @@ module.exports = {\n\tup: async function up(adapter) {\n`
                 });
             }
         }
+    }
+    getDefaultValues(properties) {
+        const defaultData = {};
+        for (let prop in properties) {
+            if (properties.hasOwnProperty(prop)) {
+                let defVal = properties[prop].description.default;
+                let defValFunc;
+                if (typeof defVal !== "function") {
+                    defValFunc = function () {
+                        return defVal;
+                    };
+                }
+                else {
+                    defValFunc = defVal;
+                }
+                defaultData[prop] = defValFunc;
+            }
+        }
+        return defaultData;
     }
 }
 exports.Domain = Domain;
