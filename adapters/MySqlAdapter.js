@@ -275,6 +275,7 @@ class MySqlAdapter {
 		let idDescription = entity.constructor.getDescription().id;
 		if (idDescription.type === Types.Number && idDescription.autoIncrement && result[0]) {
 			// Add id directly to __propeties - avoid marking ID as changed
+			// noinspection JSAccessibilityCheck
 			entity.__properties.id = result[0].insertId;
 		}
 
@@ -713,6 +714,6 @@ class MySqlAdapter {
  * Change how many queries should be stored in memory
  * @type {number}
  */
-MySqlAdapter.numberOfStoredQueries = 20;
+MySqlAdapter.numberOfStoredQueries = 100;
 
 module.exports = MySqlAdapter;

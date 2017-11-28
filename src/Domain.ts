@@ -525,22 +525,26 @@ module.exports = {\n\tup: async function up(adapter) {\n`
         for (let propName in properties) {
             if (properties.hasOwnProperty(propName)) {
                 let desc = properties[propName].description;
+                let isVirt = desc.type == Type.Types.Virtual;
 
                 Object.defineProperty(entity.prototype, propName, {
                     enumerable: true,
                     get: async function () {
+                        const chps = this.__changedProps;
+                        const props = this.__properties;
+
                         // noinspection JSAccessibilityCheck
-                        let val = this.__properties[propName];
+                        let val = chps[propName] || props[propName];
 
                         // TODO: __properties budou načtené property nebo property po uložení. Změněná data ukládat do objektu zvlášť, který se pak bude dávat k uložení a nebude třeba data procházet a filtrovat
                         // Vytvořit tedy jinou property, která data slouží až po uložení, aby bylo možné udělat rolback na entitě
 
-                        if (desc.type == Type.Types.Virtual && val == null) {
+                        if (isVirt && val == null) {
                             if (desc.withForeign) {
                                 let fEtity: typeof Entity = this.domain.getEntityByName(desc.withForeign);
 
                                 if (fEtity) {
-                                    val = await fEtity.getById(this.__properties[desc.withForeign]);
+                                    val = await fEtity.getById(chps[desc.withForeign] || props[desc.withForeign]);
                                 }
                             }
                         }
@@ -548,13 +552,14 @@ module.exports = {\n\tup: async function up(adapter) {\n`
                         return val;
                     },
                     set: function (value) {
-                        // Change value
-                        // noinspection JSAccessibilityCheck
-                        this.__properties[propName] = value;
+                        if (isVirt) {
+                            if (desc.withForeign) {
+                                this.__changedProps[desc.withForeign] = (<Entity<any>>value).id;
+                            }
+                        }
+
                         // Mark change
-                        // noinspection JSAccessibilityCheck
-                        this.__changedProperties.push(propName);
-                        // this.__changedProps[propName] = value;
+                        this.__changedProps[propName] = value;
                     }
                 });
             }

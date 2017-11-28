@@ -32,10 +32,10 @@ export default abstract class Entity<TEntity extends Entity<any>> {
      */
     private __properties: { [key: string]: any; };
 
-    /**
-     * List of changed properties which will be saved
-     */
-    private __changedProperties: Array<string> = [];
+    // /**
+    //  * List of changed properties which will be saved
+    //  */
+    // private __changedProperties: Array<string> = [];
 
     /**
      * List of changed properties which will be saved
@@ -53,7 +53,8 @@ export default abstract class Entity<TEntity extends Entity<any>> {
 
     constructor(data: any, selected: boolean = false) {
         this.__properties = data || {};
-        this.__changedProperties = !!data && !selected ? Object.keys(data) : [];
+        this.__changedProps = !!data && !selected ? Object.assign({}, data) : {};
+        delete this.__changedProps["id"];
     }
 
     //</editor-fold>
@@ -84,7 +85,7 @@ export default abstract class Entity<TEntity extends Entity<any>> {
      * @param {Entity} entity
      * @param [connection]
      */
-    static async insert<TEntity extends Entity<any>>(entity: Entity<TEntity>, connection: any) {
+    static async insert<TEntity extends Entity<any>>(entity: Entity<TEntity>, connection?: any) {
         if (!(entity instanceof Entity)) {
             throw new Error("Parameter entity must be of type Entity");
         }
@@ -93,6 +94,29 @@ export default abstract class Entity<TEntity extends Entity<any>> {
         }
 
         await (<any>this.domain).__adapter.insert(entity, entity.getData(), connection);
+
+        // TODO: dořešit kaskádované uložení entit, včetně insertu a mazání; u required entit i u hasMany
+        // Při editaci seznamu entit je třeba dohledat cizí klíč a ten upravit
+        //      Př. přidám Employee do Enterprise.users bez toho, abych měnil enterpriseId u entity Employee, chci, aby se to změnilo samo
+
+        let virts = entity.getChangedVirtuals();
+        let proms = [];
+
+        for (let v in virts) {
+            if (virts.hasOwnProperty(v)) {
+                let virt = virts[v];
+
+                if (virt.id) {
+                    proms.push(virt.save(connection));
+                } else {
+                    proms.push((<typeof Entity>virt.constructor).insert(virt, connection));
+                }
+            }
+        }
+
+        entity.storeChanges();
+
+        await Promise.all(proms);
     }
 
     // noinspection JSUnusedGlobalSymbols
@@ -101,7 +125,7 @@ export default abstract class Entity<TEntity extends Entity<any>> {
      * @param {Entity} entity Entity which should be removed
      * @param [connection]
      */
-    static async remove<TEntity extends Entity<any>>(entity: Entity<TEntity>, connection: any) {
+    static async remove<TEntity extends Entity<any>>(entity: Entity<TEntity>, connection?: any) {
         if (!(entity instanceof Entity)) {
             throw new Error("Parameter entity must be of type Entity");
         }
@@ -189,11 +213,11 @@ export default abstract class Entity<TEntity extends Entity<any>> {
      */
     getData(): {} {
         const desc = (<typeof Entity>this.constructor)._description;
-        const rtrn = {}, props = this.__properties;
+        const rtrn = {}, props = this.__properties, chp = this.__changedProps;
 
         for (let p in props) {
             if (props.hasOwnProperty(p) && (<any>desc[p]).description.type !== Type.Types.Virtual) {
-                rtrn[p] = props[p];
+                rtrn[p] = chp[p] || props[p];
             }
         }
 
@@ -226,24 +250,42 @@ export default abstract class Entity<TEntity extends Entity<any>> {
      * @param [connection]
      */
     async save(connection: any) {
-        if (this.__changedProperties.length === 0) {
+        if (Object.getOwnPropertyNames(this.__changedProps).length === 0) {
             return;
         }
 
-        if (!~~this.__properties["id"]) {
+        const id = this.__properties["id"];
+
+        if (!id) {
             throw new Error("You can't update entity without id");
         }
 
-        const data = {};
+        const changedData = this.__changedProps;
 
-        for (let field of this.__changedProperties) {
-            data[field] = this.__properties[field];
-        }
+        // If nothing changed, do not continue
+        if (Object.getOwnPropertyNames(changedData).length === 0) return;
 
-        await (<any>Entity.domain).__adapter.update(this.constructor, data, {id: this.__properties["id"]}, connection);
+        await (<any>Entity.domain).__adapter.update(this.constructor, changedData, {id: id}, connection);
+        this.storeChanges();
     }
 
-    // noinspection JSUnusedGlobalSymbols
+    /**
+     * Copy values from changes to own properties and clear list of changed values
+     */
+    private storeChanges() {
+        const chp = this.__changedProps;
+        const props = this.__properties;
+
+        for (let propName in chp) {
+            if (chp.hasOwnProperty(propName)) {
+                props[propName] = chp[propName];
+            }
+        }
+
+        this.__changedProps = {};
+    }
+
+// noinspection JSUnusedGlobalSymbols
     /**
      * Map data from given Oject into current entity instance.
      * Data will me marked as changed if differ from existing values.
@@ -255,14 +297,31 @@ export default abstract class Entity<TEntity extends Entity<any>> {
         for (let field in data) {
             if (data.hasOwnProperty(field)) {
                 if (this[field] !== data[field] && field != "id") {
-                    this.__changedProperties.push(field);
+                    this.__changedProps[field] = data[field];
                 }
 
-                this[field] = data[field];
+                // this[field] = data[field];
             }
         }
 
         return <any>this;
+    }
+
+    //</editor-fold>
+
+    //<editor-fold desc"Private Methods">
+
+    private getChangedVirtuals(): { [key: string]: Entity<any>} {
+        const desc = (<typeof Entity>this.constructor)._description;
+        const rtrn = {}, chp = this.__changedProps;
+
+        for (let p in chp) {
+            if (chp.hasOwnProperty(p) && (<any>desc[p]).description.withForeign) {
+                rtrn[p] = chp[p];
+            }
+        }
+
+        return rtrn;
     }
 
     //</editor-fold>

@@ -20,7 +20,7 @@ See [wiki](https://github.com/Hookyns/unimapperjs/wiki)
 ## TODO
 - implement Entity.addUnique()
 - implement Entity.addPrimary()
-- change JS to TS -> add types and generics for better IDE's hints
+- implement bulk operations
 
 ## Example
 First you must create domain

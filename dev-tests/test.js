@@ -2,7 +2,7 @@
 
 const $um = require("./../index");
 const type = $um.type;
-// const $uow = $um.UnitOfWork;
+const $uow = $um.UnitOfWork;
 
 /**
  * @type {Domain}
@@ -18,9 +18,13 @@ const {Enterprise} = require("./Enterprise");
 	// await domain.runMigration(__dirname + "/migrations");
 
 	let e = new Enterprise();
+	e.name = "Foo";
 	e.created = new Date("2017-10-10");
 
+	console.log(e);
+
 	await Enterprise.insert(e);
+	console.log(e);
 
 	// let emp = new Employee();
 	// emp.firstName = "Taylor";
@@ -28,7 +32,6 @@ const {Enterprise} = require("./Enterprise");
 	// emp.enterpriseId = e.id;
 
 
-	console.log(e);
 
 
 	// console.log(Enterprise.toString());

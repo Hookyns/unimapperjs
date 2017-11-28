@@ -73,10 +73,10 @@ Object.defineProperty(type, "foreign", {
 module.exports = {
 	type: type,
 
-	// /**
-	//  * @type {UnitOfWork}
-	//  */
-	// UnitOfWork: require("./src/UnitOfWork"),
+	/**
+	 * @type {UnitOfWork}
+	 */
+	UnitOfWork: require("./src/UnitOfWork"),
 
 	/**
 	 *

@@ -5,10 +5,10 @@ const Type_1 = require("./Type");
 const NumberType_1 = require("./types/NumberType");
 class Entity {
     constructor(data, selected = false) {
-        this.__changedProperties = [];
         this.__deleted = false;
         this.__properties = data || {};
-        this.__changedProperties = !!data && !selected ? Object.keys(data) : [];
+        this.__changedProps = !!data && !selected ? Object.assign({}, data) : {};
+        delete this.__changedProps["id"];
     }
     static addUnique(...fields) {
         console.warn("Entity.addUnique() not implemented yet!");
@@ -24,6 +24,21 @@ class Entity {
             throw new Error("This entity already exists");
         }
         await this.domain.__adapter.insert(entity, entity.getData(), connection);
+        let virts = entity.getChangedVirtuals();
+        let proms = [];
+        for (let v in virts) {
+            if (virts.hasOwnProperty(v)) {
+                let virt = virts[v];
+                if (virt.id) {
+                    proms.push(virt.save(connection));
+                }
+                else {
+                    proms.push(virt.constructor.insert(virt, connection));
+                }
+            }
+        }
+        entity.storeChanges();
+        await Promise.all(proms);
     }
     static async remove(entity, connection) {
         if (!(entity instanceof Entity)) {
@@ -65,10 +80,10 @@ class Entity {
     }
     getData() {
         const desc = this.constructor._description;
-        const rtrn = {}, props = this.__properties;
+        const rtrn = {}, props = this.__properties, chp = this.__changedProps;
         for (let p in props) {
             if (props.hasOwnProperty(p) && desc[p].description.type !== Type_1.Type.Types.Virtual) {
-                rtrn[p] = props[p];
+                rtrn[p] = chp[p] || props[p];
             }
         }
         return rtrn;
@@ -84,28 +99,48 @@ class Entity {
         return outObj;
     }
     async save(connection) {
-        if (this.__changedProperties.length === 0) {
+        if (Object.getOwnPropertyNames(this.__changedProps).length === 0) {
             return;
         }
-        if (!~~this.__properties["id"]) {
+        const id = this.__properties["id"];
+        if (!id) {
             throw new Error("You can't update entity without id");
         }
-        const data = {};
-        for (let field of this.__changedProperties) {
-            data[field] = this.__properties[field];
+        const changedData = this.__changedProps;
+        if (Object.getOwnPropertyNames(changedData).length === 0)
+            return;
+        await Entity.domain.__adapter.update(this.constructor, changedData, { id: id }, connection);
+        this.storeChanges();
+    }
+    storeChanges() {
+        const chp = this.__changedProps;
+        const props = this.__properties;
+        for (let propName in chp) {
+            if (chp.hasOwnProperty(propName)) {
+                props[propName] = chp[propName];
+            }
         }
-        await Entity.domain.__adapter.update(this.constructor, data, { id: this.__properties["id"] }, connection);
+        this.__changedProps = {};
     }
     mapFrom(data) {
         for (let field in data) {
             if (data.hasOwnProperty(field)) {
                 if (this[field] !== data[field] && field != "id") {
-                    this.__changedProperties.push(field);
+                    this.__changedProps[field] = data[field];
                 }
-                this[field] = data[field];
             }
         }
         return this;
+    }
+    getChangedVirtuals() {
+        const desc = this.constructor._description;
+        const rtrn = {}, chp = this.__changedProps;
+        for (let p in chp) {
+            if (chp.hasOwnProperty(p) && desc[p].description.withForeign) {
+                rtrn[p] = chp[p];
+            }
+        }
+        return rtrn;
     }
 }
 Entity.domain = null;

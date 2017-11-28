@@ -265,23 +265,30 @@ module.exports = {\n\tup: async function up(adapter) {\n`
         for (let propName in properties) {
             if (properties.hasOwnProperty(propName)) {
                 let desc = properties[propName].description;
+                let isVirt = desc.type == Type_1.Type.Types.Virtual;
                 Object.defineProperty(entity.prototype, propName, {
                     enumerable: true,
                     get: async function () {
-                        let val = this.__properties[propName];
-                        if (desc.type == Type_1.Type.Types.Virtual && val == null) {
+                        const chps = this.__changedProps;
+                        const props = this.__properties;
+                        let val = chps[propName] || props[propName];
+                        if (isVirt && val == null) {
                             if (desc.withForeign) {
                                 let fEtity = this.domain.getEntityByName(desc.withForeign);
                                 if (fEtity) {
-                                    val = await fEtity.getById(this.__properties[desc.withForeign]);
+                                    val = await fEtity.getById(chps[desc.withForeign] || props[desc.withForeign]);
                                 }
                             }
                         }
                         return val;
                     },
                     set: function (value) {
-                        this.__properties[propName] = value;
-                        this.__changedProperties.push(propName);
+                        if (isVirt) {
+                            if (desc.withForeign) {
+                                this.__changedProps[desc.withForeign] = value.id;
+                            }
+                        }
+                        this.__changedProps[propName] = value;
                     }
                 });
             }
