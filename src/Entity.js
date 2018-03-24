@@ -24,7 +24,12 @@ class Entity {
             throw new Error("This entity already exists");
         }
         await this.domain.__adapter.insert(entity, entity.getData(), connection);
-        let virts = entity.getChangedVirtuals();
+        entity.storeChanges();
+        await entity.saveRelatedVirtuals(connection);
+    }
+    async saveRelatedVirtuals(connection) {
+        const desc = this.constructor._description;
+        let virts = this.getChangedVirtuals(desc);
         let proms = [];
         for (let v in virts) {
             if (virts.hasOwnProperty(v)) {
@@ -37,7 +42,7 @@ class Entity {
                 }
             }
         }
-        entity.storeChanges();
+        let manys = this.getManyVirtuals(desc);
         await Promise.all(proms);
     }
     static async remove(entity, connection) {
@@ -111,6 +116,7 @@ class Entity {
             return;
         await Entity.domain.__adapter.update(this.constructor, changedData, { id: id }, connection);
         this.storeChanges();
+        await this.saveRelatedVirtuals(connection);
     }
     storeChanges() {
         const chp = this.__changedProps;
@@ -132,12 +138,20 @@ class Entity {
         }
         return this;
     }
-    getChangedVirtuals() {
-        const desc = this.constructor._description;
+    getChangedVirtuals(desc) {
         const rtrn = {}, chp = this.__changedProps;
         for (let p in chp) {
             if (chp.hasOwnProperty(p) && desc[p].description.withForeign) {
                 rtrn[p] = chp[p];
+            }
+        }
+        return rtrn;
+    }
+    getManyVirtuals(desc) {
+        const rtrn = {}, props = this.__properties;
+        for (let p in props) {
+            if (props.hasOwnProperty(p) && props[p] && desc[p].description.hasMany) {
+                rtrn[p] = props[p];
             }
         }
         return rtrn;
@@ -148,3 +162,4 @@ Entity._description = {
     id: new NumberType_1.NumberType().primary().autoIncrement()
 };
 exports.default = Entity;
+//# sourceMappingURL=Entity.js.map

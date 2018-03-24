@@ -16,8 +16,22 @@ export class ForeignType extends Type<ForeignType> {
             throw new Error("Parameter 'entity' must be string name of foreign Entity.");
         }
 
+        /**
+         * Name of foreign entity
+         * @type {string}
+         */
         this.description.foreignEntity = entity;
+
+        /**
+         * Name of property which hold foreign key (id to given entity)
+         * @type {string}
+         */
         this.description.withForeign = null;
+
+        /**
+         * Name of property in foreign entity which refer to this entity's id
+         * @type {string}
+         */
         this.description.hasMany = null;
     }
 

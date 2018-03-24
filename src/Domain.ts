@@ -521,7 +521,7 @@ module.exports = {\n\tup: async function up(adapter) {\n`
      * @param properties
      * @param entity
      */
-    private proxifyEntityProperties(properties, entity) {
+    private proxifyEntityProperties(properties, entity: typeof Entity) {
         for (let propName in properties) {
             if (properties.hasOwnProperty(propName)) {
                 let desc = properties[propName].description;
@@ -536,17 +536,26 @@ module.exports = {\n\tup: async function up(adapter) {\n`
                         // noinspection JSAccessibilityCheck
                         let val = chps[propName] || props[propName];
 
-                        // TODO: __properties budou načtené property nebo property po uložení. Změněná data ukládat do objektu zvlášť, který se pak bude dávat k uložení a nebude třeba data procházet a filtrovat
-                        // Vytvořit tedy jinou property, která data slouží až po uložení, aby bylo možné udělat rolback na entitě
+                        if (val === null && isVirt) {
+                            let fEtity: typeof Entity = isVirt ? entity.domain.getEntityByName(desc.foreignEntity) : null;
 
-                        if (isVirt && val == null) {
+                            if (!fEtity) {
+                                throw new Error(`Foreign property '${propName}' of entity '${entity.name}'refers`
+                                    + ` to unexisting entity '${desc.foreignEntity}'`);
+                            }
+
                             if (desc.withForeign) {
-                                let fEtity: typeof Entity = this.domain.getEntityByName(desc.withForeign);
-
-                                if (fEtity) {
-                                    val = await fEtity.getById(chps[desc.withForeign] || props[desc.withForeign]);
+                                // Foreign ID can be null if it's optional relation
+                                let id = chps[desc.withForeign] || props[desc.withForeign];
+                                val = id ? await fEtity.getById(id) : null;
+                            } else {
+                                if (props.id > 0) {
+                                    // val = await fEtity.getAll().where(x => x[])
                                 }
                             }
+
+                            // Store foreign
+                            props[desc.withForeign] = val;
                         }
 
                         return val;
@@ -554,7 +563,11 @@ module.exports = {\n\tup: async function up(adapter) {\n`
                     set: function (value) {
                         if (isVirt) {
                             if (desc.withForeign) {
-                                this.__changedProps[desc.withForeign] = (<Entity<any>>value).id;
+                                let fId = (<Entity<any>>value).id;
+
+                                if (fId != this.__changedProps[desc.withForeign]) {
+                                    this.__changedProps[desc.withForeign] = fId;
+                                }
                             }
                         }
 

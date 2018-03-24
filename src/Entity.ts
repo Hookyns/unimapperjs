@@ -99,7 +99,20 @@ export default abstract class Entity<TEntity extends Entity<any>> {
         // Při editaci seznamu entit je třeba dohledat cizí klíč a ten upravit
         //      Př. přidám Employee do Enterprise.users bez toho, abych měnil enterpriseId u entity Employee, chci, aby se to změnilo samo
 
-        let virts = entity.getChangedVirtuals();
+        entity.storeChanges();
+
+        await entity.saveRelatedVirtuals(connection);
+    }
+
+    /**
+     * Update changed related entities and go through many relations and update it's foreign key's
+     * @param {{}} connection
+     * @returns {Promise<void>}
+     */
+    private async saveRelatedVirtuals(connection: {}) {
+        const desc = (<typeof Entity>this.constructor)._description;
+
+        let virts = this.getChangedVirtuals(desc);
         let proms = [];
 
         for (let v in virts) {
@@ -114,7 +127,7 @@ export default abstract class Entity<TEntity extends Entity<any>> {
             }
         }
 
-        entity.storeChanges();
+        let manys = this.getManyVirtuals(desc);
 
         await Promise.all(proms);
     }
@@ -250,6 +263,7 @@ export default abstract class Entity<TEntity extends Entity<any>> {
      * @param [connection]
      */
     async save(connection: any) {
+        // Return if no props were changed
         if (Object.getOwnPropertyNames(this.__changedProps).length === 0) {
             return;
         }
@@ -267,6 +281,8 @@ export default abstract class Entity<TEntity extends Entity<any>> {
 
         await (<any>Entity.domain).__adapter.update(this.constructor, changedData, {id: id}, connection);
         this.storeChanges();
+
+        await this.saveRelatedVirtuals(connection);
     }
 
     /**
@@ -311,13 +327,34 @@ export default abstract class Entity<TEntity extends Entity<any>> {
 
     //<editor-fold desc"Private Methods">
 
-    private getChangedVirtuals(): { [key: string]: Entity<any>} {
-        const desc = (<typeof Entity>this.constructor)._description;
+    /**
+     * Get object with changed virtual properties
+     * @param {{[p: string]: Type<any>}} desc
+     * @returns {{[p: string]: Entity<any>}}
+     */
+    private getChangedVirtuals(desc: { [fieldName: string]: Type<any> }): { [key: string]: Entity<any>} {
         const rtrn = {}, chp = this.__changedProps;
 
         for (let p in chp) {
             if (chp.hasOwnProperty(p) && (<any>desc[p]).description.withForeign) {
                 rtrn[p] = chp[p];
+            }
+        }
+
+        return rtrn;
+    }
+
+    /**
+     *
+     * @param {{[p: string]: Type<any>}} desc
+     * @returns {{}}
+     */
+    private getManyVirtuals(desc: {[p: string]: Type<any>}) {
+        const rtrn = {}, props = this.__properties;
+
+        for (let p in props) {
+            if (props.hasOwnProperty(p) && props[p] && (<any>desc[p]).description.hasMany) {
+                rtrn[p] = props[p];
             }
         }
 

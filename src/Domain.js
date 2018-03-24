@@ -272,20 +272,31 @@ module.exports = {\n\tup: async function up(adapter) {\n`
                         const chps = this.__changedProps;
                         const props = this.__properties;
                         let val = chps[propName] || props[propName];
-                        if (isVirt && val == null) {
+                        if (val === null && isVirt) {
+                            let fEtity = isVirt ? entity.domain.getEntityByName(desc.foreignEntity) : null;
+                            if (!fEtity) {
+                                throw new Error(`Foreign property '${propName}' of entity '${entity.name}'refers`
+                                    + ` to unexisting entity '${desc.foreignEntity}'`);
+                            }
                             if (desc.withForeign) {
-                                let fEtity = this.domain.getEntityByName(desc.withForeign);
-                                if (fEtity) {
-                                    val = await fEtity.getById(chps[desc.withForeign] || props[desc.withForeign]);
+                                let id = chps[desc.withForeign] || props[desc.withForeign];
+                                val = id ? await fEtity.getById(id) : null;
+                            }
+                            else {
+                                if (props.id > 0) {
                                 }
                             }
+                            props[desc.withForeign] = val;
                         }
                         return val;
                     },
                     set: function (value) {
                         if (isVirt) {
                             if (desc.withForeign) {
-                                this.__changedProps[desc.withForeign] = value.id;
+                                let fId = value.id;
+                                if (fId != this.__changedProps[desc.withForeign]) {
+                                    this.__changedProps[desc.withForeign] = fId;
+                                }
                             }
                         }
                         this.__changedProps[propName] = value;
@@ -315,3 +326,4 @@ module.exports = {\n\tup: async function up(adapter) {\n`
     }
 }
 exports.Domain = Domain;
+//# sourceMappingURL=Domain.js.map

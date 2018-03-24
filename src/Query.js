@@ -92,15 +92,18 @@ function describeExpressionParts(parts, exprPartRegExp) {
             else if (match = part.match(exprPartRegExp)) {
                 fields = match[1].split(".");
                 func = (match[2] ? fields[fields.length - 1] : (match[3] || "exists"));
-                if (func == "==") {
+                if (func == "==" || func == "===") {
                     func = "=";
+                }
+                else if (func == "!==") {
+                    func = "!=";
                 }
                 arg = match[2] || match[4];
                 if (arg && arg.charAt(0) == arg.charAt(arg.length - 1) && (arg.charAt(0) == "'" || arg.charAt(0) == '"')) {
                     arg = arg.slice(1, -1);
                 }
                 desc = {
-                    field: match[2] ? fields.slice(0, -1).join(".") : fields.join("."),
+                    field: (match[2] ? fields.slice(0, -1) : fields).join("."),
                     func: func.toLowerCase(),
                     arg: arg
                 };
@@ -154,7 +157,7 @@ function convertWhereExpr(expr) {
     const groups = splitByGroups(exprs);
     const parts = splitGroupsByLogicalOperators(groups, new RegExp("(^|[^\\w\\d])" + expr.entity + "[ \\.\\)]"));
     expr.desc = describeExpressionParts(parts, new RegExp("(?:^|[^\\w\\d])" + expr.entity
-        + "\\.((?:\\.?[\\w\\d]+)+)(?:\\((.*?)\\))?(?:\\s(>|<|(?:==)|(?:!=)|(?:<=)|(?:>=)|(?:in))\\s(.*))?"));
+        + "\\.((?:\\.?[\\w\\d_\\$]+)+)(?:\\((.*?)\\))?(?:\\s(>|<|(?:==)|(?:!=)|(?:===)|(?:!==)|(?:<=)|(?:>=)|(?:in))\\s(.*))?"));
     return expr;
 }
 const supportedFunctions = ["startsWith", "includes", "endsWith"];
@@ -207,19 +210,11 @@ class Query {
             if (this.conditions.length != 0) {
                 expr.desc.unshift("and");
             }
-            let $i = this.whereArgs.length - 1;
-            let filter = "return " + expr.entity + " => " + exprs.replace(/([^\\]|^)(\$)/g, function (_, before) {
-                $i++;
-                return before + `args[${$i}]`;
-            }) + ";";
-            let func = new Function("args", filter);
-            this.filters.push(func);
             this.whereArgs = this.whereArgs.concat(args);
             this.conditions = this.conditions.concat(expr.desc);
-            addExprToCache(expression, { filter: func, conditions: expr });
+            addExprToCache(expression, { conditions: expr });
         }
         else {
-            this.filters.push(fromCacheMap.filter);
             this.whereArgs = this.whereArgs.concat(args);
             this.conditions = this.conditions.concat(fromCacheMap.conditions);
         }
@@ -258,3 +253,4 @@ class Query {
 }
 Query.numberOfCachedExpressions = 100;
 exports.Query = Query;
+//# sourceMappingURL=Query.js.map

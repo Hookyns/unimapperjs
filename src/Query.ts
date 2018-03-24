@@ -142,8 +142,10 @@ function describeExpressionParts(parts, exprPartRegExp) {
                 fields = match[1].split(".");
                 func = (match[2] ? fields[fields.length - 1] : (match[3] || "exists"));
 
-                if (func == "==") {
+                if (func == "==" || func == "===") {
                     func = "=";
+                } else if (func == "!==") {
+                    func = "!=";
                 }
 
                 arg = match[2] || match[4];
@@ -153,7 +155,7 @@ function describeExpressionParts(parts, exprPartRegExp) {
                 }
 
                 desc = {
-                    field: match[2] ? fields.slice(0, -1).join(".") : fields.join("."),
+                    field: (match[2] ? fields.slice(0, -1) : fields).join("."),
                     func: func.toLowerCase(),
                     arg: arg
                 };
@@ -251,7 +253,7 @@ function convertWhereExpr(expr) {
     const parts = splitGroupsByLogicalOperators(groups, new RegExp("(^|[^\\w\\d])" + expr.entity + "[ \\.\\)]"));
     expr.desc = describeExpressionParts(parts,
         new RegExp("(?:^|[^\\w\\d])" + expr.entity
-            + "\\.((?:\\.?[\\w\\d]+)+)(?:\\((.*?)\\))?(?:\\s(>|<|(?:==)|(?:!=)|(?:<=)|(?:>=)|(?:in))\\s(.*))?"));
+            + "\\.((?:\\.?[\\w\\d_\\$]+)+)(?:\\((.*?)\\))?(?:\\s(>|<|(?:==)|(?:!=)|(?:===)|(?:!==)|(?:<=)|(?:>=)|(?:in))\\s(.*))?"));
 
     return expr;
 }
@@ -413,20 +415,21 @@ export class Query<TEntity extends Entity<any>> {
                 expr.desc.unshift("and");
             }
 
-            let $i = this.whereArgs.length - 1;
-            let filter = "return " + expr.entity + " => " + exprs.replace(/([^\\]|^)(\$)/g, function (_, before) {
-                $i++;
-                return before + `args[${$i}]`;
-            }) + ";";
-            let func = new Function("args", filter);
+            // let $i = this.whereArgs.length - 1;
+            // let filter = "return " + expr.entity + " => " + exprs.replace(/([^\\]|^)(\$)/g, function (_, before) {
+            //     $i++;
+            //     if (before == ".") return before + args[$i]; // Place value directly if it's behind dot (it should be property)
+            //     return before + `args[${$i}]`;
+            // }) + ";";
+            // let func = new Function("args", filter);
 
-            this.filters.push(func);
+            // this.filters.push(func);
             this.whereArgs = this.whereArgs.concat(args);
             this.conditions = this.conditions.concat(expr.desc);
 
-            addExprToCache(expression, {filter: func, conditions: expr});
+            addExprToCache(expression, {/*filter: func, */conditions: expr});
         } else {
-            this.filters.push(fromCacheMap.filter);
+            // this.filters.push(fromCacheMap.filter);
             this.whereArgs = this.whereArgs.concat(args);
             this.conditions = this.conditions.concat(fromCacheMap.conditions);
         }
