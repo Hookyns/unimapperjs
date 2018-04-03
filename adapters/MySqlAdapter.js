@@ -245,7 +245,7 @@ class MySqlAdapter {
 	async insert(entity, data, connection) {
 		const conn = connection || await this.getConnection();
 
-		let query = "INSERT INTO " + entity.constructor.name + " (";
+		let query = "INSERT INTO `" + entity.constructor.name + "` (";
 
 		let keys = Object.keys(data);
 		let args = [];
@@ -253,7 +253,7 @@ class MySqlAdapter {
 
 		for (let i = 0; i < keys.length; i++) {
 			// Column
-			query += keys[i];
+			query += "`" + keys[i] + "`";
 
 			// Values
 			vals += "?";
@@ -365,7 +365,7 @@ class MySqlAdapter {
 			sel = "*";
 		}
 
-		let query = `SELECT ${sel} FROM ${entity.name}`;
+		let query = `SELECT \`${sel}\` FROM \`${entity.name}\``;
 
 		if (conditions.length > 0) {
 			query += " WHERE " + buildWhereCondition(conditions);
@@ -390,8 +390,6 @@ class MySqlAdapter {
 		}
 
 		query += ";";
-
-		// console.log(query);
 
 		let result = await conn.query(query);
 		this.logQuery(result[2].sql, null);

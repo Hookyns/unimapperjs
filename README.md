@@ -1,9 +1,7 @@
 # UniMapperJS
-UniMapper is universal Node.js (native ES6/ES7) object mapper (ORM/ODM) which can map whatever you create adapter for.
+UniMapperJS is universal Node.js (native ES6/ES7) LINQ-like object mapper (ORM/ODM) which can map whatever you create adapter for.
 
-!! Early DEVELOPMENT !!
-
-Core almost done!
+!! Under DEVELOPMENT !!
 
 See [wiki](https://github.com/Hookyns/unimapperjs/wiki)
 
@@ -18,15 +16,16 @@ See [wiki](https://github.com/Hookyns/unimapperjs/wiki)
 
 
 ## TODO
-- implement Entity.addUnique()
-- implement Entity.addPrimary()
+- implement Entity.addUnique() which allow UNIQUE key over more fields
+- implement Entity.addPrimary() which allow PRIMARY key over more fields
 - implement bulk operations
+- implement nested operations (eg. saving Enterprise should save all Employees in Enterprise.Employees collection too. Same rollbacking etc.)
 
 ## Example
 First you must create domain
 ```javascript
 const $um = require("unimapperjs");
-const MySqlAdapter = require("./node_modules/unimapperjs/adapters/MySqlAdapter");
+const MySqlAdapter = require("unimapperjs/adapters/MySqlAdapter");
 const type = $um.type;
 
 // Domain creation - connect to MySQL

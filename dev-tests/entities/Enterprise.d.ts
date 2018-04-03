@@ -1,5 +1,5 @@
-import Entity from "../src/Entity";
-import Employee from "./Employee";
+import {Entity} from "../../src/Entity";
+import {Employee} from "./Employee";
 
 export class Enterprise extends Entity<Enterprise> {
     /**

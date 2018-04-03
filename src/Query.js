@@ -1,11 +1,14 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+const LOG_OPERATORS_REGEX = /(\|\|)|(&&)/;
+const SPLIT_GROUP_REGEX = /(^|\||&| )\(/;
+const REGEX_CACHE = {};
 const exprCacheMap = new Map();
 function splitByGroups(expr) {
     const parts = [];
     let bracketIndex, end, offset = 0, opening, closing, char;
     let part = expr;
-    while ((bracketIndex = part.search(/(^|\||&| )\(/)) != -1) {
+    while ((bracketIndex = part.search(SPLIT_GROUP_REGEX)) != -1) {
         if (bracketIndex != 0 || part.charAt(0) != "(") {
             bracketIndex++;
         }
@@ -35,7 +38,7 @@ function splitByGroups(expr) {
 }
 function splitByLogicalOperators(str, entityRegExp) {
     let operatorIndex, parts = [], part;
-    while ((operatorIndex = str.search(/(\|\|)|(&&)/)) != -1) {
+    while ((operatorIndex = str.search(LOG_OPERATORS_REGEX)) != -1) {
         part = str.slice(0, operatorIndex).trim();
         if (entityRegExp.test(part)) {
             parts.push(part);
@@ -115,11 +118,14 @@ function describeExpressionParts(parts, exprPartRegExp) {
 }
 function updateArgsInDescribedExpression(desc, args) {
     for (let part of desc) {
-        if (part.constructor == Array) {
+        if (part.constructor === Array) {
             updateArgsInDescribedExpression(part, args);
         }
         else {
-            if (part.arg == "$") {
+            if (part.field === "$") {
+                part.field = args.shift();
+            }
+            if (part.arg === "$") {
                 part.arg = args.shift();
             }
         }
@@ -151,13 +157,24 @@ function matchExpr(expr) {
         expr: expr.trim()
     };
 }
+function getEntityRegExps(entityName) {
+    let REGEXPS = REGEX_CACHE[entityName];
+    if (!REGEXPS) {
+        REGEX_CACHE[entityName] = REGEXPS = {
+            MATCH_ENTITY_REGEXP: new RegExp("(^|[^\\w\\d])" + entityName + "[ \\.\\)]"),
+            OPERATORS_REGEX: new RegExp("(?:^|[^\\w\\d])" + entityName
+                + "\\.((?:\\.?[\\w\\d_\\$]+)+)(?:\\((.*?)\\))?(?:\\s(>|<|(?:==)|(?:!=)|(?:===)|(?:!==)|(?:<=)|(?:>=)|(?:in))\\s(.*))?")
+        };
+    }
+    return REGEXPS;
+}
 function convertWhereExpr(expr) {
     expr = matchExpr(expr);
     const exprs = expr.expr;
+    const { MATCH_ENTITY_REGEXP, OPERATORS_REGEX } = getEntityRegExps(expr.entity);
     const groups = splitByGroups(exprs);
-    const parts = splitGroupsByLogicalOperators(groups, new RegExp("(^|[^\\w\\d])" + expr.entity + "[ \\.\\)]"));
-    expr.desc = describeExpressionParts(parts, new RegExp("(?:^|[^\\w\\d])" + expr.entity
-        + "\\.((?:\\.?[\\w\\d_\\$]+)+)(?:\\((.*?)\\))?(?:\\s(>|<|(?:==)|(?:!=)|(?:===)|(?:!==)|(?:<=)|(?:>=)|(?:in))\\s(.*))?"));
+    const parts = splitGroupsByLogicalOperators(groups, MATCH_ENTITY_REGEXP);
+    expr.desc = describeExpressionParts(parts, OPERATORS_REGEX);
     return expr;
 }
 const supportedFunctions = ["startsWith", "includes", "endsWith"];

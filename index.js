@@ -10,6 +10,7 @@ const {DateType} = require("./src/types/DateType");
 const {UuidType} = require("./src/types/UuidType");
 const {ForeignType} = require("./src/types/ForeignType");
 const {Domain} = require("./src/Domain");
+const {Entity} = require("./src/Entity");
 
 /**
  * Object with type returning getters
@@ -70,13 +71,36 @@ Object.defineProperty(type, "foreign", {
 	}
 });
 
+const $fs = require("fs");
+const $path = require("path");
+
+function goThroughDir(dir, action) {
+	let list = $fs.readdirSync(dir);
+
+	list.forEach(function (fileName) {
+		if (fileName.charAt(0) === "." || fileName === "node_modules") return;
+
+		let file = $path.resolve(dir, fileName);
+		file = file.charAt(0).toLowerCase() + file.slice(1);
+		let stat = $fs.lstatSync(file);
+
+		if (stat) {
+			if (stat.isDirectory()) {
+				goThroughDir(file, action);
+			} else if (stat.isFile()) {
+				action(file);
+			}
+		}
+	});
+}
+
 module.exports = {
 	type: type,
 
 	/**
 	 * @type {UnitOfWork}
 	 */
-	UnitOfWork: require("./src/UnitOfWork"),
+	UnitOfWork: require("./src/UnitOfWork").UnitOfWork,
 
 	/**
 	 *
@@ -86,5 +110,26 @@ module.exports = {
 	 */
 	createDomain: function createDomain(adapter, connectionInfo) {
 		return new Domain(adapter, connectionInfo);
+	},
+
+	/**
+	 * Init entities from given path
+	 * @param path
+	 */
+	initEntitiesFrom(path) {
+		path = $path.resolve(path);
+		path = path.charAt(0).toLowerCase() + path.slice(1); // lowercase drive letter on windows
+
+		goThroughDir(path, (file) => {
+			if (file.slice(-3) !== ".js") return;
+			/*let c = */require(file);
+			// console.log(c);
+			// let p = $path.parse(file);
+			// let cls = c[p.base] || c["default"] || c;
+
+			// if (Object.getPrototypeOf(cls) === Entity) { // extends from entity
+			//
+			// }
+		});
 	}
 };

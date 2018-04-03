@@ -6,14 +6,15 @@ import {NumberType} from "./types/NumberType";
 /**
  * @class
  */
-export default abstract class Entity<TEntity extends Entity<any>> {
+export abstract class Entity<TEntity extends Entity<any>>
+{
 
-    //<editor-fold desc="Fields">
+    //region Fields
 
     /**
      * Entity identifier
      */
-    id: any;
+    abstract id: any;
 
     /**
      * Entity domain - set when entity created
@@ -32,11 +33,6 @@ export default abstract class Entity<TEntity extends Entity<any>> {
      */
     private __properties: { [key: string]: any; };
 
-    // /**
-    //  * List of changed properties which will be saved
-    //  */
-    // private __changedProperties: Array<string> = [];
-
     /**
      * List of changed properties which will be saved
      */
@@ -47,25 +43,87 @@ export default abstract class Entity<TEntity extends Entity<any>> {
      */
     private __deleted = false;
 
-    //</editor-fold>
+    /**
+     * Entity default data
+     * @private
+     */
+    private static __defaultData = {};
 
-    //<editor-fold desc="Ctor">
+    /**
+     * Entity states - used from UnitOfWork
+     * @type {{}}
+     * @private
+     */
+    protected __snaps: { [uowKey: string/*Symbol*/]: { [key: string]: any; } } = {};
 
-    constructor(data: any, selected: boolean = false) {
-        this.__properties = data || {};
-        this.__changedProps = !!data && !selected ? Object.assign({}, data) : {};
+    // noinspection JSUnusedGlobalSymbols
+    /**
+     * Entity Symbol ID
+     * @type {symbol}
+     * @private
+     */
+    protected __symbol: Symbol = Symbol();
+
+    //endregion
+
+    //region Ctor
+
+    /**
+     * @param [data]
+     * @param {boolean} [markDataAsChangedProperties]
+     */
+    constructor(data: any = null, markDataAsChangedProperties: boolean = false)
+    {
+        // // Clone default data accessors
+        // let defData = Object.assign({}, (<typeof Entity>this.constructor).__defaultData);
+        let defaultData = (<typeof Entity>this.constructor).__defaultData;
+        let defData = {}, changedProps = {}, p;
+
+        // Default data
+        for (p in defaultData) {
+            if (defaultData.hasOwnProperty(p)) {
+                defData[p] = defaultData[p]();
+            }
+        }
+
+        // If data defined
+        if (data) {
+            // Override default values by data
+            for (p in data) {
+                if (data.hasOwnProperty(p)) {
+                    defData[p] = data[p];
+                }
+            }
+
+            // Mark data as changed
+            if (markDataAsChangedProperties) {
+                // Go through complete prepared data
+                for (p in defData) {
+                    if (defData.hasOwnProperty(p)) {
+                        changedProps[p] = defData[p];
+                    }
+                }
+            }
+        }
+
+        // // Clone data over default data
+        // data = Object.assign(defData, data);
+
+        this.__properties = defData;
+        this.__changedProps = changedProps || {};
         delete this.__changedProps["id"];
     }
 
-    //</editor-fold>
+    //endregion
 
-    //<editor-fold desc="Static Methods">
+    //region Static methods
 
     /**
      * Add unique key created by more fields
      * @param {Array<String>} fields List of fields
      */
-    static addUnique(...fields: Array<string>) {
+    static addUnique(...fields: Array<string>)
+    {
         console.warn("Entity.addUnique() not implemented yet!");
         // return this;
     }
@@ -74,7 +132,8 @@ export default abstract class Entity<TEntity extends Entity<any>> {
      * Add primary key created by more fields
      * @param {Array<String>} fields List of fields
      */
-    static addPrimary(...fields: Array<string>) {
+    static addPrimary(...fields: Array<string>)
+    {
         console.warn("Entity.addPrimary() not implemented yet!");
         // return this;
     }
@@ -85,7 +144,8 @@ export default abstract class Entity<TEntity extends Entity<any>> {
      * @param {Entity} entity
      * @param [connection]
      */
-    static async insert<TEntity extends Entity<any>>(entity: Entity<TEntity>, connection?: any) {
+    static async insert<TEntity extends Entity<any>>(entity: Entity<TEntity>, connection?: any)
+    {
         if (!(entity instanceof Entity)) {
             throw new Error("Parameter entity must be of type Entity");
         }
@@ -104,41 +164,14 @@ export default abstract class Entity<TEntity extends Entity<any>> {
         await entity.saveRelatedVirtuals(connection);
     }
 
-    /**
-     * Update changed related entities and go through many relations and update it's foreign key's
-     * @param {{}} connection
-     * @returns {Promise<void>}
-     */
-    private async saveRelatedVirtuals(connection: {}) {
-        const desc = (<typeof Entity>this.constructor)._description;
-
-        let virts = this.getChangedVirtuals(desc);
-        let proms = [];
-
-        for (let v in virts) {
-            if (virts.hasOwnProperty(v)) {
-                let virt = virts[v];
-
-                if (virt.id) {
-                    proms.push(virt.save(connection));
-                } else {
-                    proms.push((<typeof Entity>virt.constructor).insert(virt, connection));
-                }
-            }
-        }
-
-        let manys = this.getManyVirtuals(desc);
-
-        await Promise.all(proms);
-    }
-
     // noinspection JSUnusedGlobalSymbols
     /**
      * Remove entity
      * @param {Entity} entity Entity which should be removed
      * @param [connection]
      */
-    static async remove<TEntity extends Entity<any>>(entity: Entity<TEntity>, connection?: any) {
+    static async remove<TEntity extends Entity<any>>(entity: Entity<TEntity>, connection?: any)
+    {
         if (!(entity instanceof Entity)) {
             throw new Error("Parameter entity must be of type Entity");
         }
@@ -152,7 +185,8 @@ export default abstract class Entity<TEntity extends Entity<any>> {
      * @template TEntity
      * @returns {Query<TEntity>}
      */
-    static getAll<TEntity extends Entity<any>>(): Query<TEntity> {
+    static getAll<TEntity extends Entity<any>>(): Query<TEntity>
+    {
         return new Query(this);
     }
 
@@ -164,7 +198,8 @@ export default abstract class Entity<TEntity extends Entity<any>> {
      * @template TEntity
      * @returns {TEntity}
      */
-    static async getById<TEntity extends Entity<any>>(id: number | string, ...fields: Array<string>) {
+    static async getById<TEntity extends Entity<any>>(id: number | string, ...fields: Array<string>)
+    {
         const entity = await (<any>this.domain).__adapter.select(this, fields || [],
             [{field: "id", func: "=", arg: id}]);
 
@@ -177,7 +212,8 @@ export default abstract class Entity<TEntity extends Entity<any>> {
      * Returns description of entity
      * @returns {{}}
      */
-    static getDescription() {
+    static getDescription()
+    {
         const description = {};
         const fields = this._description;
 
@@ -194,17 +230,24 @@ export default abstract class Entity<TEntity extends Entity<any>> {
     /**
      * Method for seeding. Implement this method and return data which should be seeded.
      */
-    static seed(): Entity<any>[] {
+    static seed(): Entity<any>[]
+    {
         return [];
     }
 
+    /**
+     * Entity mapping. Implement this method.
+     * @param {Entity} map
+     */
+    static map(map: Entity<any>) { }
 
     // noinspection JSUnusedGlobalSymbols
     /**
      * Reconstruct entity instance from given data. It'll not mark properties as changed.
      * @param {Object} data
      */
-    static reconstructFrom(data: any): Entity<any> {
+    static reconstructFrom(data: any): Entity<any>
+    {
         let entity: Entity<any> = new (<any>this.constructor)();
 
         for (let field in data) {
@@ -216,15 +259,16 @@ export default abstract class Entity<TEntity extends Entity<any>> {
         return entity;
     }
 
-    //</editor-fold>
+    //endregion
 
-    //<editor-fold desc="Public Methods">
+    //region Public methods
 
     /**
      * Return object with raw data
      * @returns {{}}
      */
-    getData(): {} {
+    getData(): {}
+    {
         const desc = (<typeof Entity>this.constructor)._description;
         const rtrn = {}, props = this.__properties, chp = this.__changedProps;
 
@@ -242,7 +286,8 @@ export default abstract class Entity<TEntity extends Entity<any>> {
      * @param {Array<String>} fields List of property names
      * @returns {{}}
      */
-    select(...fields: Array<string>) {
+    select(...fields: Array<string>)
+    {
         const outObj = {};
 
         // If no fields specified, select all
@@ -262,7 +307,8 @@ export default abstract class Entity<TEntity extends Entity<any>> {
      * Save tracked changes
      * @param [connection]
      */
-    async save(connection: any) {
+    async save(connection: any)
+    {
         // Return if no props were changed
         if (Object.getOwnPropertyNames(this.__changedProps).length === 0) {
             return;
@@ -285,29 +331,14 @@ export default abstract class Entity<TEntity extends Entity<any>> {
         await this.saveRelatedVirtuals(connection);
     }
 
+    // noinspection JSUnusedGlobalSymbols
     /**
-     * Copy values from changes to own properties and clear list of changed values
-     */
-    private storeChanges() {
-        const chp = this.__changedProps;
-        const props = this.__properties;
-
-        for (let propName in chp) {
-            if (chp.hasOwnProperty(propName)) {
-                props[propName] = chp[propName];
-            }
-        }
-
-        this.__changedProps = {};
-    }
-
-// noinspection JSUnusedGlobalSymbols
-    /**
-     * Map data from given Oject into current entity instance.
+     * Map data from given Object into current entity instance.
      * Data will me marked as changed if differ from existing values.
      * @param {Object} data
      */
-    mapFrom(data: any): TEntity {
+    mapFrom(data: any): TEntity
+    {
         //let entity: TEntity = new (<any>this.constructor)();
 
         for (let field in data) {
@@ -323,16 +354,117 @@ export default abstract class Entity<TEntity extends Entity<any>> {
         return <any>this;
     }
 
-    //</editor-fold>
+    //endregion
 
-    //<editor-fold desc"Private Methods">
+    //region Private methods
+
+    /**
+     * Copy values from changes to own properties and clear list of changed values
+     */
+    private storeChanges()
+    {
+        const chp = this.__changedProps;
+        const props = this.__properties;
+
+        for (let propName in chp) {
+            if (chp.hasOwnProperty(propName)) {
+                props[propName] = chp[propName];
+            }
+        }
+
+        this.__changedProps = {};
+    }
+
+    /**
+     * Update changed related entities and go through many relations and update it's foreign key's
+     * @param {{}} connection
+     * @returns {Promise<void>}
+     */
+    private async saveRelatedVirtuals(connection: {})
+    {
+        const desc = (<typeof Entity>this.constructor)._description;
+        let promises = [];
+
+        this.saveSimpleRelatedVirtuals(desc, promises, connection);
+
+        // 1:N
+        this.saveRelatedManyVirtuals(desc, promises, connection);
+
+        await Promise.all(promises);
+    }
+
+    /**
+     * Go through virtual collections of related entities and save them
+     * @param {{}} desc
+     * @param {{}[]} promises
+     * @param {{}} connection
+     */
+    private saveRelatedManyVirtuals(desc: { [p: string]: Type<any> }, promises: any[], connection: {})
+    {
+        let manys = this.getManyVirtuals(desc), fieldName: string, relatedEntity: Entity<any>, foreignField: string,
+            collection: Entity<any>[];
+
+        for (fieldName in manys) {
+            if (manys.hasOwnProperty(fieldName)) {
+                collection = manys[fieldName];
+
+                for (relatedEntity of collection) {
+                    foreignField = (<any>/*<ForeignType>*/desc[fieldName]).description.hasMany;
+                    relatedEntity[foreignField] = this.id;
+                    // TODO: If it has virtual type too, it should be set too
+                    //relatedEntity[virtualFieldName] = this;
+
+                    if (relatedEntity.id == undefined) { // undefined match null too with ==
+                        promises.push(relatedEntity.save(connection));
+                    }
+                    else {
+                        promises.push((<typeof Entity>relatedEntity.constructor).insert(relatedEntity, connection));
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Save directly related virtual properties/entities
+     * @param {{}} desc
+     * @param {Promise[]} promises
+     * @param {{}} connection
+     */
+    private saveSimpleRelatedVirtuals(desc: { [p: string]: Type<any> }, promises: Promise<any>[], connection: {})
+    {
+        let virts = this.getChangedVirtuals(desc); // N:1
+
+        for (let fieldName in virts) {
+            if (virts.hasOwnProperty(fieldName)) {
+                let relatedEntity: Entity<any> = virts[fieldName];
+
+                // Set related ID to withForeign field of this property
+                let foreignField = (<any>/*<ForeignType>*/desc[fieldName]).description.withForeign;
+                if (foreignField) {
+                    this[foreignField] = relatedEntity.id;
+                    // TODO: set from second side too.
+                    // relatedEntity[relatedVirtualField] = this;
+                    // relatedEntity[relatedForeignField] = this.id;
+                }
+
+                if (relatedEntity.id == undefined) {// undefined match null too with ==
+                    promises.push(relatedEntity.save(connection));
+                }
+                else {
+                    promises.push((<typeof Entity>relatedEntity.constructor).insert(relatedEntity, connection));
+                }
+            }
+        }
+    }
 
     /**
      * Get object with changed virtual properties
-     * @param {{[p: string]: Type<any>}} desc
-     * @returns {{[p: string]: Entity<any>}}
+     * @param {{}} desc
+     * @returns {{}}
      */
-    private getChangedVirtuals(desc: { [fieldName: string]: Type<any> }): { [key: string]: Entity<any>} {
+    private getChangedVirtuals(desc: { [fieldName: string]: Type<any> }): { [key: string]: Entity<any> }
+    {
         const rtrn = {}, chp = this.__changedProps;
 
         for (let p in chp) {
@@ -345,14 +477,16 @@ export default abstract class Entity<TEntity extends Entity<any>> {
     }
 
     /**
-     *
-     * @param {{[p: string]: Type<any>}} desc
+     * Return object with hasMany virtual properties
+     * @param {{}} desc
      * @returns {{}}
      */
-    private getManyVirtuals(desc: {[p: string]: Type<any>}) {
+    private getManyVirtuals(desc: { [p: string]: Type<any> })
+    {
         const rtrn = {}, props = this.__properties;
+        let p;
 
-        for (let p in props) {
+        for (p in props) {
             if (props.hasOwnProperty(p) && props[p] && (<any>desc[p]).description.hasMany) {
                 rtrn[p] = props[p];
             }
@@ -361,5 +495,5 @@ export default abstract class Entity<TEntity extends Entity<any>> {
         return rtrn;
     }
 
-    //</editor-fold>
+    //endregion
 }

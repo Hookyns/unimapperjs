@@ -1,4 +1,4 @@
-import Entity from "./Entity";
+import { Entity } from "./Entity";
 export declare class Query<TEntity extends Entity<any>> {
     static numberOfCachedExpressions: number;
     private entity;

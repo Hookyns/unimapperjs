@@ -5,6 +5,7 @@ import {DateType} from "./src/types/DateType";
 import {UuidType} from "./src/types/UuidType";
 import {ForeignType} from "./src/types/ForeignType";
 import {Domain} from "./src/Domain";
+import * as uow from "./src/UnitOfWork";
 
 export declare const type: {
     string: StringType;
@@ -15,16 +16,21 @@ export declare const type: {
     foreign: (foreignEntityName: string) => ForeignType
 };
 
+/**
+ * Create new domain context
+ * @param adapter
+ * @param connectionInfo
+ * @returns {Domain}
+ */
 export function createDomain(adapter: any, connectionInfo: any): Domain;
 
-// export module UniMapperJS {
-//     export declare var type: {
-//
-//     };
-//         // /**
-//         //  * @type {UnitOfWork}
-//         //  */
-//         // UnitOfWork: require("./src/UnitOfWork"),
-//
-//     export function createDomain(adapter: any, connectionInfo: any);
-// }
+/**
+ * Unit of Work class
+ */
+export const UnitOfWork: uow.UnitOfWork;
+
+/**
+ * Initialize all entities; needed especially for migrations
+ * @param {string} path
+ */
+export function initEntitiesFrom(path: string);

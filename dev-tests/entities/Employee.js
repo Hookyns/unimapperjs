@@ -1,6 +1,5 @@
-const $um = require("./../index");
-const type = $um.type;
-const domain = require("./domain");
+const {type} = require("../../index");
+const {domain} = require("../domain");
 // const Entity = require("../src/Entity");
 
 /**
@@ -16,8 +15,8 @@ exports.Employee = domain.createEntity("Employee", {
 	created: type.date.now(), // .now() is shotcut for .default(() => new Date())
 	deleted: type.boolean.default(false),
 	income: type.number.decimals(2).default(0),
-	enterpriseId: type.number,
-	enterprise: type.foreign("Enterprise").withForeign("enterpriseId")
+	enterpriseId: type.number.nullable(),
+	enterprise: type.foreign("Enterprise").withForeign("enterpriseId")/*.with...*/ //TODO: vytvořit metodu pro označení property v cizí entitě pro vazbu 1:1 => nutné kvůli aktualizaci souvisejících entit
 });
 
 

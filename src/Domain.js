@@ -3,6 +3,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const Entity_1 = require("./Entity");
 const Type_1 = require("./Type");
 const NumberType_1 = require("./types/NumberType");
+const BaseType_1 = require("./BaseType");
+const UuidType_1 = require("./types/UuidType");
 const $path = require("path");
 const $fs = require("fs");
 const prettify = require("../node_modules/json-prettify/json2").stringify;
@@ -10,7 +12,7 @@ const Types = Type_1.Type.Types;
 function toText(data, tabs) {
     return prettify(data, null, "\t").replace(/^/gm, tabs);
 }
-function allPropertiesToLowerCase(obj) {
+function allPropertiesToLowerCase(obj, deep = false) {
     if (!obj)
         return null;
     if (obj.constructor !== Object) {
@@ -19,7 +21,7 @@ function allPropertiesToLowerCase(obj) {
     const out = {};
     for (let prop in obj) {
         if (obj.hasOwnProperty(prop)) {
-            out[prop.toLowerCase()] = obj[prop] && obj[prop].constructor === Object
+            out[prop.toLowerCase()] = (deep && obj[prop].constructor === Object)
                 ? allPropertiesToLowerCase(obj[prop]) : obj[prop];
         }
     }
@@ -31,28 +33,54 @@ class Domain {
         this.__adapter = new adapter(connectionInfo);
         this.__connectionInfo = connectionInfo;
     }
-    createEntity(name, properties, idType = null) {
+    createEntity(name, properties, idType = undefined, _entityClass = undefined) {
         if (properties.constructor !== Object) {
             throw new Error("Parameter 'properties' is not Object.");
         }
-        if (!properties.hasOwnProperty("id")) {
-            if (!idType) {
-                idType = new NumberType_1.NumberType().primary().autoIncrement();
+        if (!_entityClass) {
+            if (!("id" in properties)) {
+                if (!idType) {
+                    idType = new NumberType_1.NumberType().primary().autoIncrement();
+                }
+                properties = Object.assign({
+                    id: idType
+                }, properties);
             }
-            properties = Object.assign({
-                id: idType
-            }, properties);
+            else {
+                console.warn(`WARN You define custom id in entity ${name}. `
+                    + `Use third parameter of Domain.createEntity() to change native id type.`);
+            }
+            _entityClass = class extends Entity_1.Entity {
+            };
         }
-        else {
-            console.warn(`WARN You define custom id in entity ${name}. `
-                + `Use third parameter of Domain.createEntity() to change native id type.`);
-        }
-        const defaultData = this.getDefaultValues(properties);
-        const entity = this.extendEntity(defaultData);
-        this.addEntityClassInfo(entity, name, properties);
-        this.proxifyEntityProperties(properties, entity);
-        createdEntities.push(entity);
-        return entity;
+        _entityClass.__defaultData = this.getDefaultValues(properties);
+        this.addEntityClassInfo(_entityClass, name, properties);
+        this.proxifyEntityProperties(properties, _entityClass);
+        createdEntities.push(_entityClass);
+        return _entityClass;
+    }
+    entity() {
+        return (target) => {
+            let inst = new target();
+            target.map(inst);
+            let properties = {};
+            let props = Object.getOwnPropertyNames(inst);
+            let prop;
+            for (let p of props) {
+                prop = inst[p];
+                if (prop instanceof BaseType_1.BaseType) {
+                    properties[p] = prop;
+                }
+            }
+            let idProp = properties["id"];
+            if (!idProp) {
+                throw new Error("Id property is missing in entity " + target.name);
+            }
+            if (!(idProp instanceof NumberType_1.NumberType || idProp instanceof UuidType_1.UuidType)) {
+                throw new Error("Id property must be instance of NumberType or UuidType.");
+            }
+            this.createEntity(target.name, properties, idProp, target);
+        };
     }
     async nativeQuery(query, ...params) {
         return await this.__adapter.query(query, params);
@@ -71,14 +99,13 @@ class Domain {
         for (let entity of createdEntities) {
             let fields = entity.getDescription();
             foreigns[entity.name] = [];
-            let notReducedFields = entity.getDescription();
-            let notReducedFieldsLowerCase = allPropertiesToLowerCase(notReducedFields);
+            let fieldsLowerCase = allPropertiesToLowerCase(fields);
             Domain.prepareFields(entity, fields, foreigns);
             if (!tables.some(x => (x.toLowerCase() === entity.name.toLowerCase()))) {
                 output += `\t\tawait adapter.createEntity("${entity.name}", ${toText(fields, "\t\t").trim()});\n\n`;
             }
             else {
-                output = await this.updateEntity(entity, fields, output, notReducedFieldsLowerCase, foreigns);
+                output = await this.updateEntity(entity, fields, fieldsLowerCase, output, foreigns);
             }
         }
         output = Domain.removeEntities(tables, output);
@@ -125,40 +152,42 @@ module.exports = {\n\tup: async function up(adapter) {\n`
         }
         return output;
     }
-    async updateEntity(entity, fields, output, notReducedFieldsLowerCase, foreigns) {
+    async updateEntity(entity, fields, fieldsLowerCase, output, foreigns) {
         let tableInfo = await this.__adapter.getEntityStructure(entity.name);
         let tableInfoLowerCase = allPropertiesToLowerCase(tableInfo);
-        for (let f in fields) {
-            if (fields.hasOwnProperty(f)) {
-                if (!tableInfoLowerCase.hasOwnProperty(f.toLowerCase())) {
-                    output += `\t\tawait adapter.addField("${entity.name}", "${f}", ${toText(fields[f], "\t\t").slice(2)});\n`;
+        for (let fieldName in fields) {
+            if (fields.hasOwnProperty(fieldName)) {
+                let fieldNameLowerCase = fieldName.toLowerCase();
+                if (!(fieldNameLowerCase in tableInfoLowerCase)) {
+                    output += `\t\tawait adapter.addField("${entity.name}", "${fieldName}", ${toText(fields[fieldName], "\t\t").slice(2)});\n`;
                 }
                 else {
-                    output = Domain.updateEntityField(notReducedFieldsLowerCase, f, tableInfoLowerCase, output, entity, fields);
+                    output = Domain.updateEntityField(fieldsLowerCase, fieldNameLowerCase, entity, tableInfoLowerCase, output);
                 }
             }
         }
         output = Domain.removeForeignKey(tableInfo, foreigns, entity, output);
         Domain.filterForeignKeys(tableInfo, foreigns, entity);
-        output = Domain.removeField(tableInfoLowerCase, notReducedFieldsLowerCase, tableInfo, output, entity);
+        output = Domain.removeField(tableInfoLowerCase, fieldsLowerCase, tableInfo, output, entity);
         return output;
     }
-    static updateEntityField(notReducedFieldsLowerCase, f, tableInfoLowerCase, output, entity, fields) {
+    static updateEntityField(fieldsLowerCase, fieldNameLowerCase, entity, tableInfoLowerCase, output) {
         let changed = false;
-        let lcFields = notReducedFieldsLowerCase[f.toLowerCase()];
-        for (let prop in lcFields) {
-            if (lcFields.hasOwnProperty(prop) && prop !== "default") {
-                if (lcFields.type === Types.Boolean && prop === "length") {
+        let entityTypeFields = fieldsLowerCase[fieldNameLowerCase];
+        let tableInfoTypeFields = tableInfoLowerCase[fieldNameLowerCase];
+        for (let typeFieldName in entityTypeFields) {
+            if (entityTypeFields.hasOwnProperty(typeFieldName)) {
+                if (entityTypeFields.type === Types.Boolean && typeFieldName === "length") {
                     continue;
                 }
-                if (tableInfoLowerCase[f.toLowerCase()][prop] !== lcFields[prop]) {
+                if (tableInfoTypeFields[typeFieldName] !== entityTypeFields[typeFieldName]) {
                     changed = true;
                     break;
                 }
             }
         }
         if (changed) {
-            output += `\t\tawait adapter.changeField("${entity.name}", "${f}", ${toText(fields[f], "\t\t").slice(2)});\n`;
+            output += `\t\tawait adapter.changeField("${entity.name}", "${fieldNameLowerCase}", ${toText(fieldsLowerCase[fieldNameLowerCase], "\t\t").slice(2)});\n`;
         }
         return output;
     }
@@ -207,53 +236,34 @@ module.exports = {\n\tup: async function up(adapter) {\n`
         foreigns[entity.name] = shouldBeAdded;
     }
     static prepareFields(entity, fields, foreigns) {
-        let tmpField;
+        let tmpFieldType;
         for (let field in fields) {
             if (fields.hasOwnProperty(field)) {
-                tmpField = fields[field];
-                delete tmpField["default"];
-                if (tmpField.hasOwnProperty("foreignEntity")) {
-                    if (tmpField.hasMany === null) {
-                        tmpField.keyName = `fk_${entity.name}_${tmpField.withForeign}_${tmpField.foreignEntity}_id`;
-                        foreigns[entity.name].push(tmpField);
+                tmpFieldType = fields[field];
+                if (tmpFieldType.type == Types.Virtual) {
+                    if (tmpFieldType.hasMany === null) {
+                        tmpFieldType.keyName = `fk_${entity.name}_${tmpFieldType.withForeign}_${tmpFieldType.foreignEntity}_id`;
+                        foreigns[entity.name].push(tmpFieldType);
                     }
                     delete fields[field];
                     continue;
                 }
-                for (let prop in fields[field]) {
-                    if (fields[field].hasOwnProperty(prop)) {
-                        if (fields[field][prop] === null || fields[field][prop] === false) {
-                            delete fields[field][prop];
+                delete tmpFieldType["default"];
+                delete tmpFieldType["foreignEntity"];
+                delete tmpFieldType["hasMany"];
+                delete tmpFieldType["withForeign"];
+                for (let fieldTypePropety in tmpFieldType) {
+                    if (tmpFieldType.hasOwnProperty(fieldTypePropety)) {
+                        if (tmpFieldType[fieldTypePropety] === null || tmpFieldType[fieldTypePropety] === false) {
+                            delete tmpFieldType[fieldTypePropety];
                         }
                     }
                 }
             }
         }
-        return tmpField;
-    }
-    extendEntity(defaultData) {
-        return class X extends Entity_1.default {
-            constructor(data, selected) {
-                const defData = {};
-                for (let p in defaultData) {
-                    if (defaultData.hasOwnProperty(p)) {
-                        defData[p] = defaultData[p]();
-                    }
-                }
-                if (data) {
-                    for (let p in data) {
-                        if (data.hasOwnProperty(p)) {
-                            defData[p] = data[p];
-                        }
-                    }
-                }
-                super(defData, selected);
-            }
-        };
     }
     addEntityClassInfo(entity, name, properties) {
         Object.defineProperty(entity, "name", { value: name });
-        Object.defineProperty(entity.constructor, "name", { value: name });
         Object.defineProperty(entity, "_description", {
             get: function () {
                 return Object.assign({}, properties);

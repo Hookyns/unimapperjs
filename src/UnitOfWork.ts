@@ -1,13 +1,7 @@
 "use strict";
 
-import Entity from "./Entity";
+import {Entity} from "./Entity";
 import {Domain} from "./Domain";
-
-/**
- * List of domains with started transactions
- * @type {Array<Domain>}
- */
-const domains = [];
 
 /**
  * List of connections from domains -> paired 1:1 to this.__domains
@@ -18,129 +12,172 @@ const connections = [];
 export class UnitOfWork {
 
     /**
-	 * True if user saved changes
+     * True if user saved changes
      * @private
-	 * @ignore
+     * @ignore
      */
-	private __changesSaved: boolean = false;
+    private __changesSaved: boolean = false;
 
     /**
-	 * List of changed entities
-     * @type {Array}
-     * @private
-	 * @ignore
-     */
-	private __changedEntities: Array<Entity<any>> = [];
-
-    /**
-	 * List of domains with started transactions
+     * List of changed entities
      * @type {Array}
      * @private
      * @ignore
      */
-	private __domains: Array<Domain> = [];
+    // private __touchedEntities: Array<Entity<any>> = [];
+    private __touchedEntitiesMap: { [key: string/*Symbol*/]: Entity<any>} = {};
 
-	//<editor-fold desc="Ctor">
-
-	constructor() {
-		if (new.target != Activator) {
-			throw new Error("This constructor is private");
-		}
-	}
-
-	//</editor-fold>
-
-	//<editor-fold desc="Static Methods">
-
-	// noinspection JSUnusedGlobalSymbols
     /**
-	 * Create unit of work
-	 * @param callback
-	 */
-	static async create(callback) {
-		if (!(callback instanceof Promise) && callback.constructor.name != "AsyncFunction") {
-			throw new Error("Transaction block (callback) must be async function.");
-		}
+     * List of domains with started transactions
+     * @type {Array}
+     * @private
+     * @ignore
+     */
+    private __domains: Array<Domain> = [];
 
-		// Create UoW
-		const uow: UnitOfWork = Reflect.construct(UnitOfWork, [], Activator);
+    /**
+     * UoW Symbol identifier
+     * @type {SymbolConstructor}
+     * @private
+     */
+    private __symbol: Symbol = Symbol("Unit of Work");
 
-		// Call uow block and wait till end
-		try {
-			await callback(uow);
+    //<editor-fold desc="Ctor">
 
-			// Check if saveChanges() was called, call rollback if not
-			if (!uow.__changesSaved) await uow.rollbackChanges();
-			else await uow.commitChanges();
-		} catch (e) {
-			await uow.rollbackChanges();
-			throw e;
-		}
-	}
+    constructor() {
+        if (new.target != Activator) {
+            throw new Error("This constructor is private");
+        }
+    }
+
+    //</editor-fold>
+
+    //<editor-fold desc="Static Methods">
+
+    // noinspection JSUnusedGlobalSymbols
+    /**
+     * Create unit of work
+     * @param callback
+     */
+    static async create(callback: (uow: UnitOfWork) => void) {
+        if (!(callback instanceof Promise) && callback.constructor.name != "AsyncFunction") {
+            throw new Error("Unit of work block (callback) must be async function.");
+        }
+
+        // Create UoW
+        const uow: UnitOfWork = Reflect.construct(UnitOfWork, [], Activator);
+
+        // Call uow block and wait till end
+        try {
+            await callback(uow);
+
+            // Check if saveChanges() was called, call rollback if not
+            if (!uow.__changesSaved) await uow.rollbackChanges();
+            else await uow.commitChanges();
+        } catch (e) {
+            await uow.rollbackChanges();
+            throw e;
+        }
+    }
 
 //</editor-fold>
 
-	//<editor-fold desc="Public Methods">
+    //<editor-fold desc="Public Methods">
 
     /**
-	 * Insert new entity
-     * @param {Entity<any>} entity
+     * Insert new entity
+     * @param {Entity<{}>} entity
      * @returns {Promise<void>}
      */
-	async insert(entity: Entity<any>) {
-		const domain = (<typeof Entity>entity.constructor).domain;
-        await this.createTransaction(domain); // Create transaction if not started in given domain yet
-		const conn = this.getConnection(domain);
-		await (<typeof Entity>entity.constructor).insert(entity, conn);
-	}
-
-    // noinspection JSUnusedGlobalSymbols
-    /**
-	 * Update given entity
-     * @param {Entity<any>} entity
-     * @returns {Promise<void>}
-     */
-	async update(entity: Entity<any>) {
-        this.__changedEntities.push(entity);
+    async insert(entity: Entity<any>) {
+        this.touchEntity(entity);
         const domain = (<typeof Entity>entity.constructor).domain;
         await this.createTransaction(domain); // Create transaction if not started in given domain yet
         const conn = this.getConnection(domain);
-		await entity.save(conn);
-        this.__changedEntities = [];
-	}
+        await (<typeof Entity>entity.constructor).insert(entity, conn);
+    }
 
     // noinspection JSUnusedGlobalSymbols
     /**
-	 * Remove entity from repository
-     * @param {Entity<any>} entity
+     * Update given entity
+     * @param {Entity<{}>} entity
      * @returns {Promise<void>}
      */
-	async remove(entity: Entity<any>) {
-		const entCtrl: typeof Entity = <any>entity.constructor;
+    async update(entity: Entity<any>) {
+        this.touchEntity(entity);
+        const domain = (<typeof Entity>entity.constructor).domain;
+        await this.createTransaction(domain); // Create transaction if not started in given domain yet
+        const conn = this.getConnection(domain);
+        await entity.save(conn);
+    }
+
+// noinspection JSUnusedGlobalSymbols
+    /**
+     * Remove entity from repository
+     * @param {Entity<{}>} entity
+     * @returns {Promise<void>}
+     */
+    async remove(entity: Entity<any>) {
+        const entCtrl: typeof Entity = <any>entity.constructor;
         const domain = entCtrl.domain;
         await this.createTransaction(domain); // Create transaction if not started in given domain yet
         const conn = this.getConnection(domain);
         await entCtrl.remove(entity, conn);
-	}
+    }
 
     // noinspection JSUnusedGlobalSymbols
     /**
-	 * Save your changes
+     * Save your changes
      * @returns {Promise<void>}
      */
-	async saveChanges() {
-		this.__changesSaved = true;
-	}
+    async saveChanges() {
+        this.__changesSaved = true;
+    }
 
-	//</editor-fold>
+    // noinspection JSUnusedGlobalSymbols
+    /**
+     * Store current Entity state.
+     * @description If rollback will be called, entity is going to be revert to the state which snap create.
+     * @param {Entity<{}> | Array<Entity<{}>>} entity
+     */
+    snap(entity: Entity<any> | Array<Entity<any>>) {
+        if (entity.constructor === Array) {
+            let e;
+            for (e of <Array<Entity<any>>>entity) {
+                this.snapEntity(e);
+            }
+        } else {
+            this.snapEntity(<Entity<any>>entity);
+        }
+    }
 
-	//<editor-fold desc="Private Methods">
+    //</editor-fold>
+
+    //<editor-fold desc="Private Methods">
 
     /**
-	 * Rollback changes updated with this UoW
+     * Add entity to list of touched entities
+     * @param {Entity<{}>} entity
+     */
+    private touchEntity(entity: Entity<any>)
+    {
+        this.__touchedEntitiesMap[<string>(<any>entity).__symbol] = entity;
+    }
+
+    /**
+     * Create entity state snapshot
+     * @param {Entity<{}>} e
+     */
+    private snapEntity(e: Entity<any>) {
+        (<any>e).__snaps[<any>this.__symbol] = (<any>e).__changedProps;
+        this.touchEntity(e);
+    }
+
+    /**
+     * Rollback changes updated with this UoW
      * @returns {Promise<void>}
      */
-	private async rollbackChanges() {
+    private async rollbackChanges() {
         const domains = this.__domains;
 
         // Call rolback on storage
@@ -149,13 +186,28 @@ export class UnitOfWork {
         }
 
         // Rollback changes on entities
-		for (let e of this.__changedEntities) {
-			(<any>e).__changedProps = {};
-		}
-	}
+        let entity;
+        for (let e in this.__touchedEntitiesMap) {
+            if (this.__touchedEntitiesMap.hasOwnProperty(e)) {
+                entity = this.__touchedEntitiesMap[e];
+                (<any>entity).__changedProps = (<any>entity).__snaps[<any>this.__symbol] || {}; // snap for this UoW
+            }
+        }
+
+        this.reset();
+    }
 
     /**
-	 * Commit changes
+     * Reset UoW state, same as creating new UoW
+     */
+    private reset() {
+        this.__touchedEntitiesMap = {};
+        this.__domains = [];
+        this.__changesSaved = false;
+    }
+
+    /**
+     * Commit changes
      * @returns {Promise<void>}
      */
     private async commitChanges() {
@@ -166,43 +218,44 @@ export class UnitOfWork {
         }
     }
 
-	/**
-	 * Create transaction and store entity domain and transaction connection
-	 * @private
-	 * @ignore
-	 * @param {Domain} domain
-	 */
-	async createTransaction(domain: Domain) {
+    /**
+     * Create transaction and store entity domain and transaction connection
+     * @private
+     * @ignore
+     * @param {Domain} domain
+     */
+    private async createTransaction(domain: Domain) {
         const domains = this.__domains;
 
-		if (domains.indexOf(domain) == -1) {
-			const adapter = (<any>domain).__adapter;
-			const conn = await adapter.getConnection();
-			await adapter.startTransaction(conn);
+        if (domains.indexOf(domain) == -1) {
+            const adapter = (<any>domain).__adapter;
+            const conn = await adapter.getConnection();
+            await adapter.startTransaction(conn);
 
-			domains.push(domain);
-			connections.push(conn);
-		}
-	}
+            domains.push(domain);
+            connections.push(conn);
+        }
+    }
 
-	/**
-	 * Return connection for given domain
-	 * @param {Domain} domain
-	 * @returns {*}
-	 */
-	getConnection(domain: Domain) {
-		let i;
+    /**
+     * Return connection for given domain
+     * @param {Domain} domain
+     * @returns {*}
+     */
+    private getConnection(domain: Domain) {
+        let i;
         const domains = this.__domains;
 
-		if ((i = domains.indexOf(domain)) != -1) {
-			return connections[i];
-		}
+        if ((i = domains.indexOf(domain)) != -1) {
+            return connections[i];
+        }
 
-		throw new Error("No connection stored for this domain yet");
-	}
+        throw new Error("No connection stored for this domain yet");
+    }
 
-	//</editor-fold>
+    //</editor-fold>
 
 }
 
-class Activator extends UnitOfWork {}
+class Activator extends UnitOfWork {
+}

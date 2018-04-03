@@ -1,4 +1,9 @@
-import Entity from "./Entity";
+import {Entity} from "./Entity";
+
+const LOG_OPERATORS_REGEX = /(\|\|)|(&&)/;
+const SPLIT_GROUP_REGEX = /(^|\||&| )\(/;
+
+const REGEX_CACHE = {};
 
 /**
  * Map creating cache for expressions
@@ -16,7 +21,7 @@ function splitByGroups(expr) {
     let bracketIndex, end, offset = 0, opening, closing, char;
     let part = expr;
 
-    while ((bracketIndex = part.search(/(^|\||&| )\(/)) != -1) {
+    while ((bracketIndex = part.search(SPLIT_GROUP_REGEX)) != -1) {
         // Search FIX - match symbol before bracket
         if (bracketIndex != 0 || part.charAt(0) != "(") {
             bracketIndex++;
@@ -58,7 +63,7 @@ function splitByGroups(expr) {
  */
 function splitByLogicalOperators(str, entityRegExp) {
     let operatorIndex, parts = [], part;
-    while ((operatorIndex = str.search(/(\|\|)|(&&)/)) != -1) {
+    while ((operatorIndex = str.search(LOG_OPERATORS_REGEX)) != -1) {
         part = str.slice(0, operatorIndex).trim();
         // Check if this part is relevant for query -> contains entity variable
         // -> if it do nothing with entity, it shouldn't be in query eg. 1 == 1
@@ -175,10 +180,13 @@ function describeExpressionParts(parts, exprPartRegExp) {
  */
 function updateArgsInDescribedExpression(desc, args) {
     for (let part of desc) {
-        if (part.constructor == Array) {
+        if (part.constructor === Array) {
             updateArgsInDescribedExpression(part, args);
         } else {
-            if (part.arg == "$") {
+            if (part.field === "$") {
+                part.field = args.shift();
+            }
+            if (part.arg === "$") {
                 part.arg = args.shift();
             }
         }
@@ -241,6 +249,25 @@ function matchExpr(expr) {
 }
 
 /**
+ * Return cached RegExps for given entity
+ * @param entityName
+ * @returns {{MATCH_ENTITY_REGEXP: RegExp, OPERATORS_REGEX: RegExp}}
+ */
+function getEntityRegExps(entityName) {
+    let REGEXPS = REGEX_CACHE[entityName];
+
+    if (!REGEXPS) {
+        REGEX_CACHE[entityName] = REGEXPS = {
+            MATCH_ENTITY_REGEXP: new RegExp("(^|[^\\w\\d])" + entityName + "[ \\.\\)]"),
+            OPERATORS_REGEX: new RegExp("(?:^|[^\\w\\d])" + entityName
+                + "\\.((?:\\.?[\\w\\d_\\$]+)+)(?:\\((.*?)\\))?(?:\\s(>|<|(?:==)|(?:!=)|(?:===)|(?:!==)|(?:<=)|(?:>=)|(?:in))\\s(.*))?")
+        };
+    }
+
+    return REGEXPS;
+}
+
+/**
  * Create WHERE descriptive object
  * @param expr
  * @returns {{entity: String, expr: String, desc: Array}}
@@ -248,12 +275,11 @@ function matchExpr(expr) {
 function convertWhereExpr(expr) {
     expr = matchExpr(expr);
     const exprs = expr.expr;
+    const {MATCH_ENTITY_REGEXP, OPERATORS_REGEX} = getEntityRegExps(expr.entity);
 
     const groups = splitByGroups(exprs);
-    const parts = splitGroupsByLogicalOperators(groups, new RegExp("(^|[^\\w\\d])" + expr.entity + "[ \\.\\)]"));
-    expr.desc = describeExpressionParts(parts,
-        new RegExp("(?:^|[^\\w\\d])" + expr.entity
-            + "\\.((?:\\.?[\\w\\d_\\$]+)+)(?:\\((.*?)\\))?(?:\\s(>|<|(?:==)|(?:!=)|(?:===)|(?:!==)|(?:<=)|(?:>=)|(?:in))\\s(.*))?"));
+    const parts = splitGroupsByLogicalOperators(groups, MATCH_ENTITY_REGEXP);
+    expr.desc = describeExpressionParts(parts, OPERATORS_REGEX);
 
     return expr;
 }
@@ -335,7 +361,7 @@ export class Query<TEntity extends Entity<any>> {
     private orders = [];
 
     constructor(entity: typeof Entity) {
-        this.entity = entity;
+        this.entity = <any>entity;
         this.mapResultTo = e => new (<any>entity)(e, true);
     }
 

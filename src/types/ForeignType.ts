@@ -1,4 +1,5 @@
 import {Type} from "../Type";
+import {memberExression} from "../member-expression";
 
 // noinspection JSUnusedGlobalSymbols
 /**
@@ -41,7 +42,11 @@ export class ForeignType extends Type<ForeignType> {
      * @param {string} field
      * @returns {ForeignType}
      */
-    withForeign(field: string): ForeignType {
+    withForeign<TEntity>(field: ((map: TEntity) => any) | string): ForeignType {
+        if (field.constructor === Function) {
+            return this.withForeign(memberExression(field));
+        }
+
         if (this.description.hasMany) {
             throw new Error("withForeign() cannot be used with hasMany()");
         }
@@ -60,13 +65,17 @@ export class ForeignType extends Type<ForeignType> {
      * @param {string} foreignField
      * @return {ForeignType}
      */
-    hasMany(foreignField: string): ForeignType {
+    hasMany<TEntity>(foreignField: ((map: TEntity) => any) | string): ForeignType {
+        if (foreignField.constructor === Function) {
+            return this.hasMany(memberExression(foreignField));
+        }
+
         if (this.description.withForeign) {
             throw new Error("hasMany cannot be used with withForeign()");
         }
 
         if (typeof foreignField !== "string") {
-            throw new Error("Parameter 'foreignField' must be string name of foreign entity's field holding key to this entity.");
+            throw new Error("Parameter 'foreignField' must be (string name of/expression pointing to) foreign entity's field holding key to this entity.");
         }
 
         this.description.hasMany = foreignField;

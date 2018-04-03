@@ -1,7 +1,7 @@
-import Entity from "../src/Entity";
+import {Entity} from "../../src/Entity";
 import {Enterprise} from "./Enterprise";
 
-export default class Employee extends Entity<Employee> {
+export class Employee extends Entity<Employee> {
     firstName: string;
     lastName: string;
     email: string;

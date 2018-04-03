@@ -1,6 +1,6 @@
 import { Type } from "../Type";
 export declare class ForeignType extends Type<ForeignType> {
     constructor(entity: string);
-    withForeign(field: string): ForeignType;
-    hasMany(foreignField: string): ForeignType;
+    withForeign<TEntity>(field: ((map: TEntity) => any) | string): ForeignType;
+    hasMany<TEntity>(foreignField: ((map: TEntity) => any) | string): ForeignType;
 }

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites name="Mocha Tests" time="0.773" tests="1" failures="0">
+  <testsuite name="Root Suite" timestamp="2018-04-03T21:51:07" tests="0" failures="0" time="0">
+  </testsuite>
+  <testsuite name="Entity instance creation performance" timestamp="2018-04-03T21:51:07" tests="1" file="D:\Work\Projekty\UniMapperJS_TS\test\entityInstanceCreationTest.js" failures="0" time="0.773">
+    <testcase name="Entity instance creation performance Should be able to create 2M instances under 1 second" time="0.773" classname="Should be able to create 2M instances under 1 second">
+    </testcase>
+  </testsuite>
+</testsuites>
