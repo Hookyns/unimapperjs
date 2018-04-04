@@ -3,7 +3,7 @@ import {ITypeDescription, Type} from "./Type"
 import {NumberType} from "./types/NumberType";
 import {BaseType} from "./BaseType";
 import {UuidType} from "./types/UuidType";
-import {ForeignType} from "./types/ForeignType";
+import {IAdapter, IAdapterStatic, IMigrationableAdapter} from "./IAdapter";
 
 const $path = require("path");
 const $fs = require("fs");
@@ -46,37 +46,48 @@ function allPropertiesToLowerCase(obj, deep: boolean = false) {
 }
 
 
-/**
- * List of all created createdEntities
- * @type {Array}
- */
-const createdEntities: Array<typeof Entity> = [];
+// /**
+//  * List of all created Entities
+//  * @type {Array}
+//  */
+// const createdEntities: Array<typeof Entity> = [];
 
 
 export class Domain {
 
+    //region Fields
+
     /**
      * Adapter object
      */
-    private __adapter;
+    private __adapter: IAdapter;
 
     /**
      * Database connection string
      */
     private __connectionInfo;
 
-    //<editor-fold desc="Ctor">
+    /**
+     * List of created Entities (their classes)
+     * @type {Function<Entity>[]}
+     * @private
+     */
+    private __createdEntities: Array<typeof Entity> = [];
+
+    //endregion
+
+    //region Ctor
 
     /**
      * @param {Function} adapter
      * @param {String} connectionInfo
      */
-    constructor(adapter, connectionInfo) {
+    constructor(adapter: IAdapterStatic, connectionInfo) {
         this.__adapter = new adapter(connectionInfo);
         this.__connectionInfo = connectionInfo;
     }
 
-    //</editor-fold>
+    //endregion
 
     //<editor-fold desc="Static Methods">
 
@@ -126,7 +137,7 @@ export class Domain {
         this.addEntityClassInfo(_entityClass, name, properties);
         this.proxifyEntityProperties(properties, _entityClass);
 
-        createdEntities.push(_entityClass);
+        this.__createdEntities.push(_entityClass);
 
         return _entityClass;
     }
@@ -174,7 +185,9 @@ export class Domain {
      * @param params
      */
     async nativeQuery(query, ...params): Promise<any> {
-        return await this.__adapter.query(query, params);
+        let q = (<any>this.__adapter).query;
+        if (!q) return;
+        return await q(query, params);
     }
 
     // noinspection JSUnusedGlobalSymbols
@@ -184,7 +197,7 @@ export class Domain {
      * @returns {*}
      */
     getEntityByName(entityName: string): typeof Entity {
-        for (let e of createdEntities) {
+        for (let e of this.__createdEntities) {
             if (e.name === entityName && e.domain === this) return e;
         }
 
@@ -197,11 +210,11 @@ export class Domain {
      * @param {String} path
      */
     async createMigration(path) {
-        const tables = await this.__adapter.getListOfEntities();
+        const tables = await (<IMigrationableAdapter>this.__adapter).getListOfEntities();
         const foreigns = {};
         let output = "";
 
-        for (let entity of createdEntities) {
+        for (let entity of this.__createdEntities) {
             // Entity description
             let fields = entity.getDescription();
 
@@ -226,7 +239,7 @@ export class Domain {
             }
         }
 
-        output = Domain.removeEntities(tables, output); // Drop removed entities
+        output = this.removeEntities(tables, output); // Drop removed entities
         output = Domain.addForeignKeys(foreigns, output); // Create foreign keys
 
         output = `
@@ -242,7 +255,7 @@ module.exports = {\n\tup: async function up(adapter) {\n`
     }
 
     /**
-     * Run migration from path
+     * Run latest migration from path
      * @param {String} path
      */
     async runMigration(path) {
@@ -263,7 +276,7 @@ module.exports = {\n\tup: async function up(adapter) {\n`
             // Rename migration script - mark as applied
             $fs.renameSync(migration, migration.slice(0, -3) + ".applied");
         } catch (e) {
-            console.log(e.stack);
+            console.error(e.stack);
         }
     }
 
@@ -282,7 +295,7 @@ module.exports = {\n\tup: async function up(adapter) {\n`
      * Call dispose in adapter if needed
      */
     async dispose() {
-        if (this.__adapter.dispose) this.__adapter.dispose(this.__connectionInfo);
+        if (this.__adapter.dispose) (<any>this.__adapter).dispose(this.__connectionInfo);
     }
 
     //</editor-fold>
@@ -296,10 +309,10 @@ module.exports = {\n\tup: async function up(adapter) {\n`
      * @param {String} output
      * @returns {String}
      */
-    private static removeEntities(tables, output) {
+    private removeEntities(tables, output) {
         for (let table of tables) {
             // If there is no entity with given table name -> table should be removed
-            if (!createdEntities.some(e => (table.toLowerCase() === e.name.toLowerCase()))) {
+            if (!this.__createdEntities.some(e => (table.toLowerCase() === e.name.toLowerCase()))) {
                 output += `\t\tawait adapter.removeEntity("${table}");\n`;
             }
         }
@@ -318,7 +331,7 @@ module.exports = {\n\tup: async function up(adapter) {\n`
      * @returns {Promise.<*>}
      */
     private async updateEntity(entity, fields, fieldsLowerCase, output, foreigns) {
-        let tableInfo = await this.__adapter.getEntityStructure(entity.name);
+        let tableInfo = await (<IMigrationableAdapter>this.__adapter).getEntityStructure(entity.name);
         let tableInfoLowerCase = allPropertiesToLowerCase(tableInfo);
 
         for (let fieldName in fields) {

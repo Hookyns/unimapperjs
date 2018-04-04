@@ -120,7 +120,7 @@ const whereBuildActions = {
 	"includes": (field, val) => escapeIdSqlString(field) + ` LIKE ${escapeSqlString("%" + val + "%")}`,
 	"startswith": (field, val) => escapeIdSqlString(field) + ` LIKE ${escapeSqlString(val + "%")}`,
 	"endswith": (field, val) => escapeIdSqlString(field) + ` LIKE ${escapeSqlString("%" + val)}`,
-	"exists": (field, val) => escapeIdSqlString(field) + " IS NOT NULL",
+	"exists": (field) => escapeIdSqlString(field) + " IS NOT NULL",
 };
 
 /**
@@ -152,11 +152,14 @@ function buildWhereCondition(conditions) {
 	return query;
 }
 
-
+/**
+ * @implements IMigrationableAdapter
+ */
 class MySqlAdapter {
 
-	//<editor-fold desc="Static Properties">
+	//<editor-fold desc="Static properties">
 
+	// noinspection JSUnusedGlobalSymbols
 	/**
 	 * True if database type need migrations (basically all SQL databases need it)
 	 * @type {Boolean}
@@ -194,7 +197,7 @@ class MySqlAdapter {
 
 	//</editor-fold>
 
-	//<editor-fold desc="Required Methods">
+	//<editor-fold desc="Required methods">
 
 	/**
 	 * Return connection to database
@@ -206,6 +209,16 @@ class MySqlAdapter {
 		}
 
 		return await this.pool.getConnection();
+	}
+
+	// noinspection JSMethodCanBeStatic, JSUnusedGlobalSymbols
+	/**
+	 * Releas connection
+	 * @param connection
+	 * @returns {Promise<void>}
+	 */
+	async releaseConnection(connection) {
+		await connection.release();
 	}
 
 	// noinspection JSUnusedGlobalSymbols, JSMethodCanBeStatic
@@ -235,12 +248,13 @@ class MySqlAdapter {
 		await connection.query("COMMIT;")
 	}
 
+	// noinspection JSUnusedGlobalSymbols
 	/**
 	 * Insert new record
 	 * @param {Entity} entity Instance of entity
 	 * @param {Object} data
 	 * @param [connection]
-	 * @returns {UniMapperEntity}
+	 * @returns {Entity}
 	 */
 	async insert(entity, data, connection) {
 		const conn = connection || await this.getConnection();
@@ -284,9 +298,10 @@ class MySqlAdapter {
 		return entity;
 	}
 
+	// noinspection JSUnusedGlobalSymbols
 	/**
 	 * Update record
-	 * @param {Entity} entity
+	 * @param {Function<Entity>} entity Entity class
 	 * @param {Object} data
 	 * @param {Object} [where]
 	 * @param [connection]
@@ -298,9 +313,10 @@ class MySqlAdapter {
 		if (!connection) await conn.release();
 	}
 
+	// noinspection JSUnusedGlobalSymbols
 	/**
 	 * Remove record
-	 * @param entity
+	 * @param {Function<Entity>} entity Entity class
 	 * @param {Object} [where]
 	 * @param [connection]
 	 */
@@ -311,12 +327,13 @@ class MySqlAdapter {
 		if (!connection) await conn.release();
 	}
 
+	// noinspection JSUnusedGlobalSymbols
 	/**
 	 * Select records
-	 * @param {Function<UniMapperEntity>} entity
+	 * @param {Function<Entity>} entity Entity class
 	 * @param {Array<String>} select List of fields which should be selected
 	 * @param [conditions]
-	 * @param {Array<{ field: String, order: "ASC" | "DESC"}>} [order]
+	 * @param {Array<{ field: String, order: "ASC" || "DESC"}>} [order]
 	 * @param [limit]
 	 * @param [skip]
 	 */
@@ -376,7 +393,7 @@ class MySqlAdapter {
 
 			for (let or = 0; or < order.length; or++) {
 				// escapeSqlString() just for sure if somebody take field from client
-				query += (or != 0 ? ", " : "") + escapeIdSqlString(order[or].field) + " "
+				query += (or !== 0 ? ", " : "") + escapeIdSqlString(order[or].field) + " "
 					+ (order[or].order === "desc" ? "DESC" : "ASC");
 			}
 		}
@@ -397,6 +414,7 @@ class MySqlAdapter {
 		return result[0];
 	}
 
+	// noinspection JSUnusedGlobalSymbols
 	/**
 	 * Dispose resources - end connection pool
 	 */
@@ -409,14 +427,13 @@ class MySqlAdapter {
 
 	//</editor-fold>
 
-
 	////////////////////////////////////////////////////////////////////////////////////////////////////////
 	//                                                                                                    //
 	//                                             MIGRATIONS                                             //
 	//                                                                                                    //
 	////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-	//<editor-fold desc="Migrating Methods">
+	//<editor-fold desc="Migrating methods">
 
 	/**
 	 * Return list with entity names
@@ -426,8 +443,11 @@ class MySqlAdapter {
 		try {
 			const conn = await this.getConnection();
 			let result = await conn.query("SHOW TABLES;");
-			let nameIndex = Object.keys(result[0][0])[0];
 			let out = [];
+
+			if (!result[0].length) return out;
+
+			let nameIndex = Object.keys(result[0][0])[0];
 
 			for (let row of result[0]) {
 				out.push(row[nameIndex]);
@@ -671,7 +691,7 @@ class MySqlAdapter {
 
 	//</editor-fold>
 
-	//<editor-fold desc="Aditional Adapter Features">
+	//<editor-fold desc="Additional adapter features">
 
 	/**
 	 * Execute native SQL query
@@ -689,7 +709,7 @@ class MySqlAdapter {
 
 	// </editor-fold>
 
-	//<editor-fold desc="Private Methods">
+	//<editor-fold desc="Private methods">
 
 	/**
 	 * Add query to list

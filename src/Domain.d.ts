@@ -1,8 +1,10 @@
 import { Entity } from "./Entity";
+import { IAdapterStatic } from "./IAdapter";
 export declare class Domain {
     private __adapter;
     private __connectionInfo;
-    constructor(adapter: any, connectionInfo: any);
+    private __createdEntities;
+    constructor(adapter: IAdapterStatic, connectionInfo: any);
     createEntity(name: any, properties: any, idType?: any, _entityClass?: typeof Entity): typeof Entity;
     entity(): (target: Function) => void;
     nativeQuery(query: any, ...params: any[]): Promise<any>;
@@ -11,7 +13,7 @@ export declare class Domain {
     runMigration(path: any): Promise<void>;
     runMigrations(...paths: any[]): Promise<void>;
     dispose(): Promise<void>;
-    private static removeEntities(tables, output);
+    private removeEntities(tables, output);
     private updateEntity(entity, fields, fieldsLowerCase, output, foreigns);
     private static updateEntityField(fieldsLowerCase, fieldNameLowerCase, entity, tableInfoLowerCase, output);
     private static removeField(tableInfoLowerCase, notReducedFieldsLowerCase, tableInfo, output, entity);

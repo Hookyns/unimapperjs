@@ -1,55 +1,7 @@
 import {Entity} from "../../../src/Entity";
 import {type} from "../../../index";
 import {domain} from "../domain";
-import {Enterprise} from "../../../dev-tests/entities/Enterprise";
-
-// @domain.entity()
-// export class Teacher extends Entity<Teacher>{
-//     /**
-//      * Teacher ID
-//      */
-//     id: number;
-//
-//     /**
-//      * First name
-//      */
-//     firstName: string;
-//
-//     /**
-//      * Last name
-//      * @type {string}
-//      */
-//     lastName: string;
-//
-//     // /**
-//     //  * Enterprise ID
-//     //  */
-//     // enterpriseId: number;
-//     //
-//     // /**
-//     //  * Enterprise accessor
-//     //  */
-//     // enterprise: Enterprise;
-//
-//     static map(map: Teacher) {
-//         // const {Enterprise} = require("../../../dev-tests/entities/Enterprise");
-//
-//         map.id = <any>type.number.primary().autoIncrement();
-//         map.firstName = <any>type.string.length(50);
-//         map.lastName = <any>type.string.length(50);
-//         // map.enterprise = <any>type.foreign(Enterprise.name)
-//         //     .withForeign<Teacher>(e => e.enterpriseId);
-//     }
-//
-//     // seed() {
-//     //     let data = [
-//     //         new Teacher({ firstName: "", lastName: "" }, true)
-//     //     ];
-//     //
-//     //     return this.initSeed(data, )
-//     // }
-// }
-
+import {Student} from "./Student";
 
 /**
  * Teacher entity
@@ -69,11 +21,21 @@ export class Teacher extends Entity<Teacher>
 
     /**
      * Last name
-     * @type {string}
      */
     lastName: string = <any>type.string.length(50);
 
-    map(map: Teacher) {
+    /**
+     * Navigations property to assigned students
+     */
+    students: Array<Student>;
 
+    /**
+     * Mapping
+     */
+    static map(map: Teacher) {
+        const {Student} = require("./Student");
+
+        map.students = <any>type.foreign(Student.name)
+            .hasMany<Student>(s => s.teacherId);
     }
 }

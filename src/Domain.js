@@ -27,9 +27,9 @@ function allPropertiesToLowerCase(obj, deep = false) {
     }
     return out;
 }
-const createdEntities = [];
 class Domain {
     constructor(adapter, connectionInfo) {
+        this.__createdEntities = [];
         this.__adapter = new adapter(connectionInfo);
         this.__connectionInfo = connectionInfo;
     }
@@ -56,7 +56,7 @@ class Domain {
         _entityClass.__defaultData = this.getDefaultValues(properties);
         this.addEntityClassInfo(_entityClass, name, properties);
         this.proxifyEntityProperties(properties, _entityClass);
-        createdEntities.push(_entityClass);
+        this.__createdEntities.push(_entityClass);
         return _entityClass;
     }
     entity() {
@@ -83,10 +83,13 @@ class Domain {
         };
     }
     async nativeQuery(query, ...params) {
-        return await this.__adapter.query(query, params);
+        let q = this.__adapter.query;
+        if (!q)
+            return;
+        return await q(query, params);
     }
     getEntityByName(entityName) {
-        for (let e of createdEntities) {
+        for (let e of this.__createdEntities) {
             if (e.name === entityName && e.domain === this)
                 return e;
         }
@@ -96,7 +99,7 @@ class Domain {
         const tables = await this.__adapter.getListOfEntities();
         const foreigns = {};
         let output = "";
-        for (let entity of createdEntities) {
+        for (let entity of this.__createdEntities) {
             let fields = entity.getDescription();
             foreigns[entity.name] = [];
             let fieldsLowerCase = allPropertiesToLowerCase(fields);
@@ -108,7 +111,7 @@ class Domain {
                 output = await this.updateEntity(entity, fields, fieldsLowerCase, output, foreigns);
             }
         }
-        output = Domain.removeEntities(tables, output);
+        output = this.removeEntities(tables, output);
         output = Domain.addForeignKeys(foreigns, output);
         output = `
 /**
@@ -132,7 +135,7 @@ module.exports = {\n\tup: async function up(adapter) {\n`
             $fs.renameSync(migration, migration.slice(0, -3) + ".applied");
         }
         catch (e) {
-            console.log(e.stack);
+            console.error(e.stack);
         }
     }
     async runMigrations(...paths) {
@@ -144,9 +147,9 @@ module.exports = {\n\tup: async function up(adapter) {\n`
         if (this.__adapter.dispose)
             this.__adapter.dispose(this.__connectionInfo);
     }
-    static removeEntities(tables, output) {
+    removeEntities(tables, output) {
         for (let table of tables) {
-            if (!createdEntities.some(e => (table.toLowerCase() === e.name.toLowerCase()))) {
+            if (!this.__createdEntities.some(e => (table.toLowerCase() === e.name.toLowerCase()))) {
                 output += `\t\tawait adapter.removeEntity("${table}");\n`;
             }
         }
