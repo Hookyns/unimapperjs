@@ -281,10 +281,10 @@ class MySqlAdapter {
 
 		query += ") VALUES (" + vals + ");";
 
-		let preResult;
-		let result = await (preResult = conn.query(query, args));
+		let sql = conn.format(query, args);
+		let result = await conn.query(sql);
 
-		this.logQuery(result[2].sql, null);
+		this.logQuery(sql, null);
 
 		let idDescription = entity.constructor.getDescription().id;
 		if (idDescription.type === Types.Number && idDescription.autoIncrement && result[0]) {
@@ -308,8 +308,9 @@ class MySqlAdapter {
 	 */
 	async update(entity, data, where = {}, connection) {
 		const conn = connection || await this.getConnection();
-		let result = await conn.query(`UPDATE ${entity.name} SET ? WHERE ?;`, [data, where]);
-		this.logQuery(result[2].sql, null);
+		let sql = conn.format(`UPDATE ${entity.name} SET ? WHERE ?;`, [data, where]);
+		await conn.query(sql);
+		this.logQuery(sql, null);
 		if (!connection) await conn.release();
 	}
 
@@ -322,8 +323,9 @@ class MySqlAdapter {
 	 */
 	async remove(entity, where = {}, connection) {
 		const conn = connection || await this.getConnection();
-		let result = await conn.query(`DELETE FROM ${entity.name} WHERE ?;`, [where]);
-		this.logQuery(result[2].sql, null);
+		let sql = conn.format(`DELETE FROM ${entity.name} WHERE ?;`, [where]);
+		await conn.query(sql);
+		this.logQuery(sql, null);
 		if (!connection) await conn.release();
 	}
 
@@ -408,8 +410,9 @@ class MySqlAdapter {
 
 		query += ";";
 
+		// let sql = conn.format(query);
 		let result = await conn.query(query);
-		this.logQuery(result[2].sql, null);
+		this.logQuery(query, null);
 		await conn.release();
 		return result[0];
 	}
@@ -701,8 +704,9 @@ class MySqlAdapter {
 	 */
 	async query(query, params = [], connection) {
 		const conn = connection || await this.getConnection();
-		let result = await conn.query(query, params);
-		this.logQuery(result[2].sql, null);
+		let sql = conn.format(query, params);
+		let result = await conn.query(sql);
+		this.logQuery(sql, null);
 		if (!connection) await conn.release();
 		return result[0];
 	}
