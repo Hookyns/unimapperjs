@@ -91,5 +91,7 @@ describe("Relational operations", () => {
 		students = await teacher.students;
 		assert.equal(students.constructor, Array, "Array is returned from non-empty 1:N navigation property");
 		assert.equal(students.length, 2, "2 items are in teacher 1:N navigation property of students");
+		assert.equal(students[0].teacherId, teacher.id, "Teacher of student from index 0 is right teacher");
+		assert.equal(students[1].teacherId, teacher.id, "Teacher of student from index 1 is right teacher");
 	});
 });
