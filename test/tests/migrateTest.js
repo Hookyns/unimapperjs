@@ -1,8 +1,9 @@
-/**
+/*
  * Testing migrations
  * Must be before other tests which use entities
  */
 
+require("../preparation/debug"); // For debug needs
 const assert = require("assert");
 const {domain} = require("../preparation/domain");
 const $um = require("../../index");
@@ -97,6 +98,22 @@ module.exports = (runNext) => {
 
 module.exports = {
 	up: async function up(adapter) {
+		await adapter.createEntity("Subject", {
+			  "id": {
+				  "type": "Number"
+				, "length": 11
+				, "primary": true
+				, "autoIncrement": true
+			}
+			, "name": {
+				  "type": "String"
+				, "length": 100
+			}
+			, "active": {
+				  "type": "Boolean"
+			}
+		});
+
 		await adapter.createEntity("Student", {
 			  "id": {
 				  "type": "String"

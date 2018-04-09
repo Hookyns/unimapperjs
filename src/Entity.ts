@@ -305,7 +305,7 @@ export abstract class Entity<TEntity extends Entity<any>>
     async save(connection: any)
     {
         // Return if no props were changed
-        if (Object.getOwnPropertyNames(this.__changedProps).length === 0) {
+        if (Object.keys(this.__changedProps).length === 0) {
             return;
         }
 
@@ -318,9 +318,9 @@ export abstract class Entity<TEntity extends Entity<any>>
         const changedData = this.__changedProps;
 
         // If nothing changed, do not continue
-        if (Object.getOwnPropertyNames(changedData).length === 0) return;
+        if (Object.keys(changedData).length === 0) return;
 
-        await (<any>Entity.domain).__adapter.update(this.constructor, changedData, {id: id}, connection);
+        await (<any>this.constructor).domain.__adapter.update(this.constructor, changedData, {id: id}, connection);
         this.storeChanges();
 
         await this.saveRelatedVirtuals(connection);

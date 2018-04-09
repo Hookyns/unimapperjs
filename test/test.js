@@ -16,6 +16,7 @@ require("./tests/domainTest");
 require("./tests/migrateTest")(() => { // Must be before any test with entities
 
 	require("./tests/entityOperationsTest");
+	require("./tests/entityRelationOperationsTest");
 
 
 	require("./tests/entityInstanceCreationTest");

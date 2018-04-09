@@ -104,7 +104,7 @@ class Entity {
         return outObj;
     }
     async save(connection) {
-        if (Object.getOwnPropertyNames(this.__changedProps).length === 0) {
+        if (Object.keys(this.__changedProps).length === 0) {
             return;
         }
         const id = this.__properties[ID_FIELD_NAME];
@@ -112,9 +112,9 @@ class Entity {
             throw new Error("You can't update entity without id");
         }
         const changedData = this.__changedProps;
-        if (Object.getOwnPropertyNames(changedData).length === 0)
+        if (Object.keys(changedData).length === 0)
             return;
-        await Entity.domain.__adapter.update(this.constructor, changedData, { id: id }, connection);
+        await this.constructor.domain.__adapter.update(this.constructor, changedData, { id: id }, connection);
         this.storeChanges();
         await this.saveRelatedVirtuals(connection);
     }
