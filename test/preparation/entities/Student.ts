@@ -6,13 +6,33 @@ import {Teacher} from "./Teacher";
 @domain.entity()
 export class Student extends Entity<Student>
 {
-    id: number = <any>type.uuid;
-    name: string = <any>type.string.length(100);
-    teacherId: number = <any>type.number;
+    /**
+     * Sudent Id
+     */
+    id: number;
+
+    /**
+     * Student name
+     */
+    name: string;
+
+    /**
+     * Student's teacher id
+     */
+    teacherId: number;
+
+    /**
+     * Navigation property to Teacher
+     */
     teacher: Teacher;
 
     static map(map: Student) {
         const {Teacher} = require("./Teacher");
-        map.teacher = <any>type.foreign(Teacher.name).withForeign<Student>(s => s.teacherId);
+
+        map.id = <any>type.uuid;
+        map.name = <any>type.string.length(100);
+        map.teacherId = <any>type.number;
+        map.teacher = <any>type.foreign(Teacher.name)
+            .withForeign<Student>(s => s.teacherId);
     }
 }

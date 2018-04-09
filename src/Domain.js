@@ -61,25 +61,27 @@ class Domain {
     }
     entity() {
         return (target) => {
-            let inst = new target();
-            target.map(inst);
-            let properties = {};
-            let props = Object.getOwnPropertyNames(inst);
-            let prop;
-            for (let p of props) {
-                prop = inst[p];
-                if (prop instanceof BaseType_1.BaseType) {
-                    properties[p] = prop;
+            process.nextTick(() => {
+                let inst = new target();
+                target.map(inst);
+                let properties = {};
+                let props = Object.getOwnPropertyNames(inst);
+                let prop;
+                for (let p of props) {
+                    prop = inst[p];
+                    if (prop instanceof BaseType_1.BaseType) {
+                        properties[p] = prop;
+                    }
                 }
-            }
-            let idProp = properties["id"];
-            if (!idProp) {
-                throw new Error("Id property is missing in entity " + target.name);
-            }
-            if (!(idProp instanceof NumberType_1.NumberType || idProp instanceof UuidType_1.UuidType)) {
-                throw new Error("Id property must be instance of NumberType or UuidType.");
-            }
-            this.createEntity(target.name, properties, idProp, target);
+                let idProp = properties["id"];
+                if (!idProp) {
+                    throw new Error("Id property is missing in entity " + target.name);
+                }
+                if (!(idProp instanceof NumberType_1.NumberType || idProp instanceof UuidType_1.UuidType)) {
+                    throw new Error("Id property must be instance of NumberType or UuidType.");
+                }
+                this.createEntity(target.name, properties, idProp, target);
+            });
         };
     }
     async nativeQuery(query, ...params) {
@@ -96,6 +98,7 @@ class Domain {
         return null;
     }
     async createMigration(path) {
+        await new Promise(r => setImmediate(r));
         const tables = await this.__adapter.getListOfEntities();
         const foreigns = {};
         let output = "";
@@ -279,27 +282,43 @@ module.exports = {\n\tup: async function up(adapter) {\n`
             if (properties.hasOwnProperty(propName)) {
                 let desc = properties[propName].description;
                 let isVirt = desc.type == Type_1.Type.Types.Virtual;
+                let fEtity = isVirt ? entity.domain.getEntityByName(desc.foreignEntity) : null;
+                if (isVirt && !fEtity) {
+                    throw new Error(`Foreign property '${propName}' of entity '${entity.name}'refers`
+                        + ` to unexisting entity '${desc.foreignEntity}'`);
+                }
                 Object.defineProperty(entity.prototype, propName, {
                     enumerable: true,
-                    get: async function () {
+                    get: function () {
                         const chps = this.__changedProps;
                         const props = this.__properties;
                         let val = chps[propName] || props[propName];
                         if (val === null && isVirt) {
-                            let fEtity = isVirt ? entity.domain.getEntityByName(desc.foreignEntity) : null;
-                            if (!fEtity) {
-                                throw new Error(`Foreign property '${propName}' of entity '${entity.name}'refers`
-                                    + ` to unexisting entity '${desc.foreignEntity}'`);
-                            }
-                            if (desc.withForeign) {
-                                let id = chps[desc.withForeign] || props[desc.withForeign];
-                                val = id ? await fEtity.getById(id) : null;
-                            }
-                            else {
-                                if (props.id > 0) {
-                                }
-                            }
-                            props[desc.withForeign] = val;
+                            val = new Promise((resolve, reject) => {
+                                setImmediate(async () => {
+                                    try {
+                                        let val;
+                                        if (desc.withForeign) {
+                                            let id = chps[desc.withForeign] || props[desc.withForeign];
+                                            if (id) {
+                                                val = await fEtity.getById(id);
+                                            }
+                                            else {
+                                                val = null;
+                                            }
+                                        }
+                                        else {
+                                            if (props.id > 0) {
+                                            }
+                                        }
+                                        props[desc.withForeign] = val;
+                                        resolve(val);
+                                    }
+                                    catch (e) {
+                                        reject(e);
+                                    }
+                                });
+                            });
                         }
                         return val;
                     },

@@ -327,7 +327,7 @@ export class Query<TEntity extends Entity<any>> {
      * @type {Array}
      * @private
      */
-    private selectFields = null;
+    private selectFields: Array<any> = null;
 
     /**
      * Arrow function creating new object
@@ -362,7 +362,7 @@ export class Query<TEntity extends Entity<any>> {
 
     constructor(entity: typeof Entity) {
         this.entity = <any>entity;
-        this.mapResultTo = e => new (<any>entity)(e, true);
+        this.mapResultTo = e => new (<any>entity)(e, false);
     }
 
     // noinspection JSUnusedGlobalSymbols
@@ -382,7 +382,7 @@ export class Query<TEntity extends Entity<any>> {
         // }
 
         // It's COUNT
-        if (fetch.length == 1 && fetch[0].count) {
+        if (this.selectFields && this.selectFields.length === 1 && this.selectFields[0].func === "count") {
             return fetch[0].count;
         }
 

@@ -12,17 +12,17 @@ export class Teacher extends Entity<Teacher>
     /**
      * Teacher ID
      */
-    id: number = <any>type.number.primary().autoIncrement();
+    id: number;
 
     /**
      * First name
      */
-    firstName: string = <any>type.string.length(50);
+    firstName: string;
 
     /**
      * Last name
      */
-    lastName: string = <any>type.string.length(50);
+    lastName: string;
 
     /**
      * Navigations property to assigned students
@@ -35,6 +35,9 @@ export class Teacher extends Entity<Teacher>
     static map(map: Teacher) {
         const {Student} = require("./Student");
 
+        map.id = <any>type.number.primary().autoIncrement();
+        map.firstName = <any>type.string.length(50);
+        map.lastName = <any>type.string.length(50);
         map.students = <any>type.foreign(Student.name)
             .hasMany<Student>(s => s.teacherId);
     }

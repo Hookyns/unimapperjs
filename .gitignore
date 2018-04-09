@@ -1,5 +1,5 @@
 .idea
-Poznámky.txt
 dev-tests/
 node_modules
 test-results.xml
+test/migrations/*.js

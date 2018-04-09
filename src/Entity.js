@@ -3,35 +3,34 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const Query_1 = require("./Query");
 const Type_1 = require("./Type");
 const NumberType_1 = require("./types/NumberType");
+const ID_FIELD_NAME = "id";
 class Entity {
-    constructor(data = null, markDataAsChangedProperties = false) {
+    constructor(data = {}, markDataAsChangedProperties = true) {
         this.__deleted = false;
         this.__snaps = {};
         this.__symbol = Symbol();
         let defaultData = this.constructor.__defaultData;
-        let defData = {}, changedProps = {}, p;
-        for (p in defaultData) {
-            if (defaultData.hasOwnProperty(p)) {
-                defData[p] = defaultData[p]();
-            }
+        let changedProps = {}, p;
+        let propKeys = Object.keys(data);
+        let defKeys = Object.keys(defaultData);
+        let properties = {};
+        for (let i = 0; i < defKeys.length; i++) {
+            p = defKeys[i];
+            properties[p] = defaultData[p]();
         }
-        if (data) {
-            for (p in data) {
-                if (data.hasOwnProperty(p)) {
-                    defData[p] = data[p];
+        for (let i = 0; i < propKeys.length; i++) {
+            p = propKeys[i];
+            properties[p] = data[p];
+        }
+        if (markDataAsChangedProperties) {
+            for (p in properties) {
+                if (properties.hasOwnProperty(p) && p != ID_FIELD_NAME) {
+                    changedProps[p] = properties[p];
                 }
             }
-            if (markDataAsChangedProperties) {
-                for (p in defData) {
-                    if (defData.hasOwnProperty(p)) {
-                        changedProps[p] = defData[p];
-                    }
-                }
-            }
         }
-        this.__properties = defData;
+        this.__properties = properties;
         this.__changedProps = changedProps || {};
-        delete this.__changedProps["id"];
     }
     static addUnique(...fields) {
         console.warn("Entity.addUnique() not implemented yet!");
@@ -55,13 +54,13 @@ class Entity {
             throw new Error("Parameter entity must be of type Entity");
         }
         entity.__deleted = true;
-        await this.domain.__adapter.remove(this, { id: entity.__properties["id"] }, connection);
+        await this.domain.__adapter.remove(this, { id: entity.__properties[ID_FIELD_NAME] }, connection);
     }
     static getAll() {
         return new Query_1.Query(this);
     }
     static async getById(id, ...fields) {
-        const entity = await this.domain.__adapter.select(this, fields || [], [{ field: "id", func: "=", arg: id }]);
+        const entity = await this.domain.__adapter.select(this, fields || [], [{ field: ID_FIELD_NAME, func: "=", arg: id }]);
         if (!entity[0])
             return null;
         return Reflect.construct(this, [entity[0], true]);
@@ -81,12 +80,7 @@ class Entity {
     }
     static map(map) { }
     static reconstructFrom(data) {
-        let entity = new this.constructor();
-        for (let field in data) {
-            if (data.hasOwnProperty(field)) {
-                entity[field] = data[field];
-            }
-        }
+        let entity = new this.constructor(data, false);
         return entity;
     }
     getData() {
@@ -113,7 +107,7 @@ class Entity {
         if (Object.getOwnPropertyNames(this.__changedProps).length === 0) {
             return;
         }
-        const id = this.__properties["id"];
+        const id = this.__properties[ID_FIELD_NAME];
         if (!id) {
             throw new Error("You can't update entity without id");
         }
@@ -127,7 +121,7 @@ class Entity {
     mapFrom(data) {
         for (let field in data) {
             if (data.hasOwnProperty(field)) {
-                if (this[field] !== data[field] && field != "id") {
+                if (this[field] !== data[field] && field != ID_FIELD_NAME) {
                     this.__changedProps[field] = data[field];
                 }
             }

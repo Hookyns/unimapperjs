@@ -2,11 +2,24 @@
 	Test in right order as should be run
  */
 
+
+// If tests fail, process will still run because domain is not disposed
+let disposeTimeout = setTimeout(async () => {
+	const {domain} = require("./preparation/domain");
+	await domain.dispose();
+}, 10 * 1000);
+
+// Testing domain first
 require("./tests/domainTest");
-require("./tests/migrateTest"); // Should be before any test with entities
 
-// Must be after
-require("./tests/entityInstanceCreationTest");
+// Test migrations then
+require("./tests/migrateTest")(() => { // Must be before any test with entities
+
+	require("./tests/entityOperationsTest");
 
 
-require("./tests/domainDisposeTest"); // Should be last - dispose domain
+	require("./tests/entityInstanceCreationTest");
+	require("./tests/domainDisposeTest"); // Should be last - dispose domain
+
+	clearTimeout(disposeTimeout);
+});

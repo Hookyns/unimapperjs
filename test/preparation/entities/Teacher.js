@@ -10,14 +10,11 @@ const Entity_1 = require("../../../src/Entity");
 const index_1 = require("../../../index");
 const domain_1 = require("../domain");
 let Teacher = class Teacher extends Entity_1.Entity {
-    constructor() {
-        super(...arguments);
-        this.id = index_1.type.number.primary().autoIncrement();
-        this.firstName = index_1.type.string.length(50);
-        this.lastName = index_1.type.string.length(50);
-    }
     static map(map) {
         const { Student } = require("./Student");
+        map.id = index_1.type.number.primary().autoIncrement();
+        map.firstName = index_1.type.string.length(50);
+        map.lastName = index_1.type.string.length(50);
         map.students = index_1.type.foreign(Student.name)
             .hasMany(s => s.teacherId);
     }

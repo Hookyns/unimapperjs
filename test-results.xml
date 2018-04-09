@@ -1,30 +1,52 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuites name="Mocha Tests" time="0.806" tests="9" failures="0">
-  <testsuite name="Root Suite" timestamp="2018-04-04T18:24:31" tests="0" failures="0" time="0">
+<testsuites name="Mocha Tests" time="1.068" tests="11" failures="2">
+  <testsuite name="Root Suite" timestamp="2018-04-09T11:38:27" tests="0" failures="0" time="0">
   </testsuite>
-  <testsuite name="Entity instantion" timestamp="2018-04-04T18:24:31" tests="2" file="D:\Work\Projekty\UniMapperJS_TS\test\10_entityInstanceCreationTest.js" failures="0" time="0.746">
+  <testsuite name="Domain" timestamp="2018-04-09T11:38:27" tests="2" file="D:\Work\Projekty\UniMapperJS_TS\test\test.js" failures="0" time="0.034">
+    <testcase name="Domain Can be instantiated" time="0.001" classname="Can be instantiated">
+    </testcase>
+    <testcase name="Domain Can create and close connection" time="0.033" classname="Can create and close connection">
+    </testcase>
+  </testsuite>
+  <testsuite name="Migration" timestamp="2018-04-09T11:38:27" tests="4" file="D:\Work\Projekty\UniMapperJS_TS\test\test.js" failures="0" time="0.23099999999999998">
+    <testcase name="Migration Can be generated" time="0.007" classname="Can be generated">
+    </testcase>
+    <testcase name="Migration Can be performed" time="0.029" classname="Can be performed">
+    </testcase>
+    <testcase name="Migration Is generated correctly" time="0.012" classname="Is generated correctly">
+    </testcase>
+    <testcase name="Migration Is performed correctly" time="0.183" classname="Is performed correctly">
+    </testcase>
+  </testsuite>
+  <testsuite name="Entity" timestamp="2018-04-09T11:38:27" tests="2" file="D:\Work\Projekty\UniMapperJS_TS\test\test.js" failures="2" time="0.005">
+    <testcase name="Entity Can be created" time="0.001" classname="Can be created">
+      <failure><![CDATA[TypeError: val.slice is not a function
+    at escapeString (node_modules\sqlstring\lib\SqlString.js:183:23)
+    at Object.escape (node_modules\sqlstring\lib\SqlString.js:53:21)
+    at Object.format (node_modules\sqlstring\lib\SqlString.js:91:21)
+    at PoolConnection.Connection.format (node_modules\mysql2\lib\connection.js:456:20)
+    at PoolConnection.query (node_modules\mysql2\lib\connection.js:513:21)
+    at node_modules\mysql2\promise.js:53:23
+    at new Promise (<anonymous>)
+    at PromiseConnection.query (node_modules\mysql2\promise.js:50:10)
+    at MySqlAdapter.insert (adapters\MySqlAdapter.js:285:40)
+    at <anonymous>
+    at process._tickCallback (internal/process/next_tick.js:188:7)]]></failure>
+    </testcase>
+    <testcase name="Entity Can be selected" time="0.004" classname="Can be selected">
+      <failure><![CDATA[AssertionError [ERR_ASSERTION]: 0 == 1
+    at Context.it (test\tests\entityOperationsTest.js:40:10)
+    at <anonymous>
+    at process._tickCallback (internal/process/next_tick.js:188:7)]]></failure>
+    </testcase>
+  </testsuite>
+  <testsuite name="Entity instantion" timestamp="2018-04-09T11:38:27" tests="2" file="D:\Work\Projekty\UniMapperJS_TS\test\test.js" failures="0" time="0.797">
     <testcase name="Entity instantion Should be created" time="0" classname="Should be created">
     </testcase>
-    <testcase name="Entity instantion Should be able to create 2M instances under 1 second" time="0.746" classname="Should be able to create 2M instances under 1 second">
+    <testcase name="Entity instantion Should be able to create 1M instances under 1 second" time="0.797" classname="Should be able to create 1M instances under 1 second">
     </testcase>
   </testsuite>
-  <testsuite name="Migration" timestamp="2018-04-04T18:24:32" tests="4" file="D:\Work\Projekty\UniMapperJS_TS\test\20_migrateTest.js" failures="0" time="0.059000000000000004">
-    <testcase name="Migration Can be generated" time="0.056" classname="Can be generated">
-    </testcase>
-    <testcase name="Migration Can be performed" time="0.003" classname="Can be performed">
-    </testcase>
-    <testcase name="Migration Is generated correctly" time="0" classname="Is generated correctly">
-    </testcase>
-    <testcase name="Migration Is performed correctly" time="0" classname="Is performed correctly">
-    </testcase>
-  </testsuite>
-  <testsuite name="Domain" timestamp="2018-04-04T18:24:32" tests="2" file="D:\Work\Projekty\UniMapperJS_TS\test\5_domainTest.js" failures="0" time="0">
-    <testcase name="Domain Can be instantiated" time="0" classname="Can be instantiated">
-    </testcase>
-    <testcase name="Domain Can create and close connection" time="0" classname="Can create and close connection">
-    </testcase>
-  </testsuite>
-  <testsuite name="Domain" timestamp="2018-04-04T18:24:32" tests="1" file="D:\Work\Projekty\UniMapperJS_TS\test\900_domainDisposeTest.js" failures="0" time="0.001">
+  <testsuite name="Domain" timestamp="2018-04-09T11:38:28" tests="1" file="D:\Work\Projekty\UniMapperJS_TS\test\test.js" failures="0" time="0.001">
     <testcase name="Domain Can be disposed" time="0.001" classname="Can be disposed">
     </testcase>
   </testsuite>

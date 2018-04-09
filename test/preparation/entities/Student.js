@@ -10,15 +10,13 @@ const Entity_1 = require("../../../src/Entity");
 const index_1 = require("../../../index");
 const domain_1 = require("../domain");
 let Student = class Student extends Entity_1.Entity {
-    constructor() {
-        super(...arguments);
-        this.id = index_1.type.uuid;
-        this.name = index_1.type.string.length(100);
-        this.teacherId = index_1.type.number;
-    }
     static map(map) {
         const { Teacher } = require("./Teacher");
-        map.teacher = index_1.type.foreign(Teacher.name).withForeign(s => s.teacherId);
+        map.id = index_1.type.uuid;
+        map.name = index_1.type.string.length(100);
+        map.teacherId = index_1.type.number;
+        map.teacher = index_1.type.foreign(Teacher.name)
+            .withForeign(s => s.teacherId);
     }
 };
 Student = __decorate([

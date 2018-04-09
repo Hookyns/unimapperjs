@@ -10,7 +10,6 @@ const {DateType} = require("./src/types/DateType");
 const {UuidType} = require("./src/types/UuidType");
 const {ForeignType} = require("./src/types/ForeignType");
 const {Domain} = require("./src/Domain");
-const {Entity} = require("./src/Entity");
 
 /**
  * Object with type returning getters
@@ -118,10 +117,11 @@ module.exports = {
 	 */
 	initEntitiesFrom(path) {
 		path = $path.resolve(path);
-		path = path.charAt(0).toLowerCase() + path.slice(1); // lowercase drive letter on windows
+		//path = path.charAt(0).toLowerCase() + path.slice(1); // lowercase drive letter on windows
 
 		goThroughDir(path, (file) => {
 			if (file.slice(-3) !== ".js") return;
+			file = "./" + $path.relative(__dirname, file).replace(/\\/g, "/");
 			/*let c = */require(file);
 			// console.log(c);
 			// let p = $path.parse(file);
@@ -131,5 +131,10 @@ module.exports = {
 			//
 			// }
 		});
+	},
+
+	async immediate() {
+		return new Promise(r => setImmediate(r));
+		// return new Promise(r => process.nextTick(r));
 	}
 };

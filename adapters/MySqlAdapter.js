@@ -372,17 +372,17 @@ class MySqlAdapter {
 					if (obj.func === "count") {
 						sel += `COUNT(${obj.arg || "*"}) AS count`;
 					} else {
-						throw new Error(`Unsupported function '${obj.func}' found in query`);
+						throw new Error(`Unsupported aggregate function '${obj.func}' found in query`);
 					}
 				} else {
-					sel += select[s];
+					sel += "`" + select[s] + "`";
 				}
 			}
 		} else {
 			sel = "*";
 		}
 
-		let query = `SELECT \`${sel}\` FROM \`${entity.name}\``;
+		let query = `SELECT ${sel} FROM \`${entity.name}\``;
 
 		if (conditions.length > 0) {
 			query += " WHERE " + buildWhereCondition(conditions);

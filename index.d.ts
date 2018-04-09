@@ -34,3 +34,9 @@ export const UnitOfWork: uow.UnitOfWork;
  * @param {string} path
  */
 export function initEntitiesFrom(path: string);
+
+/**
+ * Awaitable setImmediate. Wait for next event loop iteration/tick
+ * @returns {Promise<void>}
+ */
+export function immediate(): Promise<void>;

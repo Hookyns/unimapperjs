@@ -188,12 +188,12 @@ class Query {
         this.conditions = [];
         this.orders = [];
         this.entity = entity;
-        this.mapResultTo = e => new entity(e, true);
+        this.mapResultTo = e => new entity(e, false);
     }
     async exec() {
         updateArgsInDescribedExpression(this.conditions, this.whereArgs);
         const fetch = await this.entity.domain.__adapter.select(this.entity, this.selectFields, this.conditions, this.orders, this.limitValue, this.skipValue);
-        if (fetch.length == 1 && fetch[0].count) {
+        if (this.selectFields && this.selectFields.length === 1 && this.selectFields[0].func === "count") {
             return fetch[0].count;
         }
         return fetch.map(this.mapResultTo);

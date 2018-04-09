@@ -3,6 +3,9 @@ import {Type} from "./Type";
 import {Domain} from "./Domain";
 import {NumberType} from "./types/NumberType";
 
+// Name of field holding entity identifier
+const ID_FIELD_NAME = "id";
+
 /**
  * @class
  */
@@ -13,6 +16,7 @@ export abstract class Entity<TEntity extends Entity<any>>
 
     /**
      * Entity identifier
+     * @see ID_FIELD_NAME
      */
     abstract id: any;
 
@@ -72,46 +76,37 @@ export abstract class Entity<TEntity extends Entity<any>>
      * @param [data]
      * @param {boolean} [markDataAsChangedProperties]
      */
-    constructor(data: any = null, markDataAsChangedProperties: boolean = false)
+    constructor(data: any = {}, markDataAsChangedProperties: boolean = true)
     {
-        // // Clone default data accessors
-        // let defData = Object.assign({}, (<typeof Entity>this.constructor).__defaultData);
-        let defaultData = (<typeof Entity>this.constructor).__defaultData;
-        let defData = {}, changedProps = {}, p;
+        let defaultData = (<any>this.constructor).__defaultData;
+        let changedProps = {}, p;
 
-        // Default data
-        for (p in defaultData) {
-            if (defaultData.hasOwnProperty(p)) {
-                defData[p] = defaultData[p]();
-            }
+        let propKeys = Object.keys(data);
+        let defKeys = Object.keys(defaultData);
+        let properties = {};
+
+        for (let i = 0; i < defKeys.length; i++) {
+            p = defKeys[i];
+            properties[p] = defaultData[p]();
         }
 
-        // If data defined
-        if (data) {
-            // Override default values by data
-            for (p in data) {
-                if (data.hasOwnProperty(p)) {
-                    defData[p] = data[p];
-                }
-            }
+        for (let i = 0; i < propKeys.length; i++) {
+            p = propKeys[i];
+            properties[p] = data[p];
+        }
 
-            // Mark data as changed
-            if (markDataAsChangedProperties) {
-                // Go through complete prepared data
-                for (p in defData) {
-                    if (defData.hasOwnProperty(p)) {
-                        changedProps[p] = defData[p];
-                    }
+        if (markDataAsChangedProperties) {
+            for (p in properties)
+            {
+                if (properties.hasOwnProperty(p) && p != ID_FIELD_NAME)
+                {
+                    changedProps[p] = properties[p];
                 }
             }
         }
 
-        // // Clone data over default data
-        // data = Object.assign(defData, data);
-
-        this.__properties = defData;
+        this.__properties = properties;
         this.__changedProps = changedProps || {};
-        delete this.__changedProps["id"];
     }
 
     //endregion
@@ -176,7 +171,7 @@ export abstract class Entity<TEntity extends Entity<any>>
             throw new Error("Parameter entity must be of type Entity");
         }
         entity.__deleted = true;
-        await (<any>this.domain).__adapter.remove(this, {id: entity.__properties["id"]}, connection);
+        await (<any>this.domain).__adapter.remove(this, {id: entity.__properties[ID_FIELD_NAME]}, connection);
     }
 
     // noinspection JSUnusedGlobalSymbols
@@ -201,7 +196,7 @@ export abstract class Entity<TEntity extends Entity<any>>
     static async getById<TEntity extends Entity<any>>(id: number | string, ...fields: Array<string>)
     {
         const entity = await (<any>this.domain).__adapter.select(this, fields || [],
-            [{field: "id", func: "=", arg: id}]);
+            [{field: ID_FIELD_NAME, func: "=", arg: id}]);
 
         if (!entity[0]) return null;
 
@@ -248,13 +243,13 @@ export abstract class Entity<TEntity extends Entity<any>>
      */
     static reconstructFrom(data: any): Entity<any>
     {
-        let entity: Entity<any> = new (<any>this.constructor)();
+        let entity: Entity<any> = new (<any>this.constructor)(data, false);
 
-        for (let field in data) {
-            if (data.hasOwnProperty(field)) {
-                entity[field] = data[field];
-            }
-        }
+        // for (let field in data) {
+        //     if (data.hasOwnProperty(field)) {
+        //         entity[field] = data[field];
+        //     }
+        // }
 
         return entity;
     }
@@ -314,7 +309,7 @@ export abstract class Entity<TEntity extends Entity<any>>
             return;
         }
 
-        const id = this.__properties["id"];
+        const id = this.__properties[ID_FIELD_NAME];
 
         if (!id) {
             throw new Error("You can't update entity without id");
@@ -343,7 +338,7 @@ export abstract class Entity<TEntity extends Entity<any>>
 
         for (let field in data) {
             if (data.hasOwnProperty(field)) {
-                if (this[field] !== data[field] && field != "id") {
+                if (this[field] !== data[field] && field != ID_FIELD_NAME) {
                     this.__changedProps[field] = data[field];
                 }
 

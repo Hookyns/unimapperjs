@@ -43,7 +43,7 @@
 		"uuid": "^3.0.1"
 	},
 	"scripts": {
-		"test": "mocha -S --reporter mocha-junit-reporter",
-		"test-console": "mocha -S"
+		"test": "mocha -S",
+		"test-report": "mocha -S --reporter mocha-junit-reporter"
 	}
 }
