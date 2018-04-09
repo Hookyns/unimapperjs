@@ -1,5 +1,5 @@
 .idea
-dev-tests/
+dev-tests
 node_modules
 test-results.xml
 test/migrations/*.js
