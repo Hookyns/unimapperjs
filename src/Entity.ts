@@ -277,6 +277,25 @@ export abstract class Entity<TEntity extends Entity<any>>
     }
 
     /**
+     * Return object with raw data but just that changed
+     * @returns {{}}
+     */
+    getChangedData()
+    {
+        const desc = (<typeof Entity>this.constructor)._description;
+        const changedData = {}, chp = this.__changedProps;
+
+        for (let p in chp)
+        {
+            if (chp.hasOwnProperty(p) && (<any>desc[p]).description.type !== Type.Types.Virtual)
+            {
+                changedData[p] = chp[p];
+            }
+        }
+        return changedData;
+    }
+
+    /**
      * Return new object with selected properties
      * @param {Array<String>} fields List of property names
      * @returns {{}}
@@ -315,18 +334,19 @@ export abstract class Entity<TEntity extends Entity<any>>
             throw new Error("You can't update entity without id");
         }
 
-        const changedData = this.__changedProps;
+        await (<any>this.constructor).domain.__adapter.update(
+            this.constructor,
+            this.getChangedData(),
+            {id: id},
+            connection
+        );
 
-        // If nothing changed, do not continue
-        if (Object.keys(changedData).length === 0) return;
-
-        await (<any>this.constructor).domain.__adapter.update(this.constructor, changedData, {id: id}, connection);
         this.storeChanges();
 
         await this.saveRelatedVirtuals(connection);
     }
 
-    // noinspection JSUnusedGlobalSymbols
+// noinspection JSUnusedGlobalSymbols
     /**
      * Map data from given Object into current entity instance.
      * Data will me marked as changed if differ from existing values.

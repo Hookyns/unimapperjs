@@ -112,14 +112,14 @@ function fieldDesc(name, description) {
  * List of function mapped to actions
  */
 const whereBuildActions = {
-	"=": (field, val) => escapeIdSqlString(field) + ` = ${escapeSqlString(val)}`,
-	">": (field, val) => escapeIdSqlString(field) + ` > ${escapeSqlString(val)}`,
-	">=": (field, val) => escapeIdSqlString(field) + ` >= ${escapeSqlString(val)}`,
-	"<": (field, val) => escapeIdSqlString(field) + ` < ${escapeSqlString(val)}`,
-	"<=": (field, val) => escapeIdSqlString(field) + ` <= ${escapeSqlString(val)}`,
-	"includes": (field, val) => escapeIdSqlString(field) + ` LIKE ${escapeSqlString("%" + val + "%")}`,
-	"startswith": (field, val) => escapeIdSqlString(field) + ` LIKE ${escapeSqlString(val + "%")}`,
-	"endswith": (field, val) => escapeIdSqlString(field) + ` LIKE ${escapeSqlString("%" + val)}`,
+	"=": (field, val) => escapeIdSqlString(field) + ` = '${escapeSqlString(val)}'`,
+	">": (field, val) => escapeIdSqlString(field) + ` > '${escapeSqlString(val)}'`,
+	">=": (field, val) => escapeIdSqlString(field) + ` >= '${escapeSqlString(val)}'`,
+	"<": (field, val) => escapeIdSqlString(field) + ` < '${escapeSqlString(val)}'`,
+	"<=": (field, val) => escapeIdSqlString(field) + ` <= '${escapeSqlString(val)}'`,
+	"includes": (field, val) => escapeIdSqlString(field) + ` LIKE '${escapeSqlString("%" + val + "%")}'`,
+	"startswith": (field, val) => escapeIdSqlString(field) + ` LIKE '${escapeSqlString(val + "%")}'`,
+	"endswith": (field, val) => escapeIdSqlString(field) + ` LIKE '${escapeSqlString("%" + val)}'`,
 	"exists": (field) => escapeIdSqlString(field) + " IS NOT NULL",
 };
 

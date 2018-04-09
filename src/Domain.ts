@@ -60,7 +60,6 @@ function allPropertiesToLowerCase(obj, deep: boolean = false)
 
 export class Domain
 {
-
     //region Fields
 
     /**
@@ -79,6 +78,13 @@ export class Domain
      * @private
      */
     private __createdEntities: Array<typeof Entity> = [];
+
+    /**
+     * List of entities waiting for registration.
+     * @type {Function<Entity>[]}
+     * @private
+     */
+    private __waitingEntities: Array<typeof Entity> = [];
 
     //endregion
 
@@ -152,6 +158,7 @@ export class Domain
         this.proxifyEntityProperties(properties, _entityClass);
 
         this.__createdEntities.push(_entityClass);
+        this.removeFromWaiting(_entityClass);
 
         return _entityClass;
     }
@@ -170,6 +177,8 @@ export class Domain
             // It means that those dependencies cannot be resolved. So it's important to release context
             // and let module finish.
 
+            this.__waitingEntities.push(<any>target);
+
             process.nextTick(() => {
                 // Get class fields
                 let inst = new (<any>target)();
@@ -182,7 +191,7 @@ export class Domain
                 {
                     prop = inst[p];
 
-                    if (prop instanceof BaseType)
+                    if (prop instanceof Type)
                     {
                         properties[p] = prop;
                     }
@@ -229,6 +238,12 @@ export class Domain
         for (let e of this.__createdEntities)
         {
             if (e.name === entityName && e.domain === this) return e;
+        }
+
+        // Try waiting ones
+        for (let e of this.__waitingEntities)
+        {
+            if (e.name === entityName) return e;
         }
 
         return null;
@@ -343,6 +358,16 @@ module.exports = {\n\tup: async function up(adapter) {\n`
     //</editor-fold>
 
     //<editor-fold desc="Private Methods>
+
+    /**
+     * Remove from list of waiting entities
+     * @param {typeof Entity} entity
+     */
+    private removeFromWaiting(entity: typeof Entity)
+    {
+        let i = this.__waitingEntities.indexOf(entity);
+        this.__waitingEntities = this.__waitingEntities.splice(i, 1);
+    }
 
     /**
      * Remove removed entities
@@ -644,6 +669,8 @@ module.exports = {\n\tup: async function up(adapter) {\n`
                 let desc = properties[propName].description;
                 let isVirt = desc.type == Type.Types.Virtual;
                 let fEtity: typeof Entity = isVirt ? entity.domain.getEntityByName(desc.foreignEntity) : null;
+                let fkField = desc.withForeign;
+                let hasMany = desc.hasMany;
 
                 if (isVirt && !fEtity)
                 {
@@ -660,7 +687,7 @@ module.exports = {\n\tup: async function up(adapter) {\n`
                         // noinspection JSAccessibilityCheck
                         let val = chps[propName] || props[propName];
 
-                        if (val === null && isVirt)
+                        if (val == undefined && isVirt)
                         {
                             val = new Promise((resolve, reject) => {
                                 setImmediate(async () => {
@@ -668,10 +695,10 @@ module.exports = {\n\tup: async function up(adapter) {\n`
                                     {
                                         let val;
 
-                                        if (desc.withForeign)
+                                        if (fkField)
                                         {
                                             // Foreign Id can be null if it's optional relation
-                                            let id = chps[desc.withForeign] || props[desc.withForeign];
+                                            let id = chps[fkField] || props[fkField];
 
                                             if (id)
                                             {
@@ -681,18 +708,25 @@ module.exports = {\n\tup: async function up(adapter) {\n`
                                             {
                                                 val = null;
                                             }
+
+                                            // Store foreign
+                                            props[desc.withForeign] = val;
                                         }
-                                        else
+                                        else if (hasMany)
                                         {
                                             // TODO: Finish 1:M relation
                                             if (props.id > 0)
                                             {
-                                                // val = await fEtity.getAll().where(x => x[])
+                                                val = await fEtity.getAll()
+                                                    .where(x => (<any>x).$ == <any>$, hasMany, props.id)
+                                                    .exec();
+                                            }
+                                            else
+                                            {
+                                                return [];
                                             }
                                         }
 
-                                        // Store foreign
-                                        props[desc.withForeign] = val;
                                         resolve(val);
                                     }
                                     catch (e)
@@ -741,7 +775,10 @@ module.exports = {\n\tup: async function up(adapter) {\n`
         {
             if (properties.hasOwnProperty(prop))
             {
-                let defVal = (<any>properties[prop]).description.default;
+                let propertyDesc = (<any>properties[prop]).description;
+                if (propertyDesc.type == Type.Types.Virtual) continue; // Ignore virtual types
+
+                let defVal = propertyDesc.default;
                 let defValFunc;
 
                 if (typeof defVal !== "function")

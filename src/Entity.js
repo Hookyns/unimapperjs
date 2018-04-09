@@ -93,6 +93,16 @@ class Entity {
         }
         return rtrn;
     }
+    getChangedData() {
+        const desc = this.constructor._description;
+        const changedData = {}, chp = this.__changedProps;
+        for (let p in chp) {
+            if (chp.hasOwnProperty(p) && desc[p].description.type !== Type_1.Type.Types.Virtual) {
+                changedData[p] = chp[p];
+            }
+        }
+        return changedData;
+    }
     select(...fields) {
         const outObj = {};
         if (!fields) {
@@ -111,10 +121,7 @@ class Entity {
         if (!id) {
             throw new Error("You can't update entity without id");
         }
-        const changedData = this.__changedProps;
-        if (Object.keys(changedData).length === 0)
-            return;
-        await this.constructor.domain.__adapter.update(this.constructor, changedData, { id: id }, connection);
+        await this.constructor.domain.__adapter.update(this.constructor, this.getChangedData(), { id: id }, connection);
         this.storeChanges();
         await this.saveRelatedVirtuals(connection);
     }

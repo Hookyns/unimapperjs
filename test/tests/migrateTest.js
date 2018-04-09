@@ -147,6 +147,7 @@ module.exports = {
 			}
 		});
 
+		await adapter.addForeignKey("Student", "teacherId", "Teacher", "fk_Student_teacherId_Teacher_id");
 	}
 };`)
 			});

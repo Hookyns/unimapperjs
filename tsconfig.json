@@ -64,7 +64,8 @@
 	},
 	"include": [
 		"./src/**/*",
-		"./dev-tests/**/*"
+		"./dev-tests/**/*",
+		"globals.d.ts"
 	],
 	"exclude": [
 	]

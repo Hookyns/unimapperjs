@@ -26,6 +26,7 @@ export declare abstract class Entity<TEntity extends Entity<any>> {
     static map(map: Entity<any>): void;
     static reconstructFrom(data: any): Entity<any>;
     getData(): {};
+    getChangedData(): {};
     select(...fields: Array<string>): any;
     save(connection: any): Promise<void>;
     mapFrom(data: any): TEntity;

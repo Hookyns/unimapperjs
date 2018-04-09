@@ -4,6 +4,7 @@ export declare class Domain {
     private __adapter;
     private __connectionInfo;
     private __createdEntities;
+    private __waitingEntities;
     constructor(adapter: IAdapterStatic, connectionInfo: any);
     createEntity(name: any, properties: any, idType?: any, _entityClass?: typeof Entity): typeof Entity;
     entity(): (target: Function) => void;
@@ -13,6 +14,7 @@ export declare class Domain {
     runMigration(path: any): Promise<void>;
     runMigrations(...paths: any[]): Promise<void>;
     dispose(): Promise<void>;
+    private removeFromWaiting(entity);
     private removeEntities(tables, output);
     private updateEntity(entity, fields, fieldsLowerCase, output, foreigns);
     private static updateEntityField(fieldsLowerCase, fieldNameLowerCase, entity, tableInfoLowerCase, output);

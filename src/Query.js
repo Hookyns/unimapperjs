@@ -233,7 +233,7 @@ class Query {
         }
         else {
             this.whereArgs = this.whereArgs.concat(args);
-            this.conditions = this.conditions.concat(fromCacheMap.conditions);
+            this.conditions = this.conditions.concat(fromCacheMap.conditions.desc);
         }
         return this;
     }

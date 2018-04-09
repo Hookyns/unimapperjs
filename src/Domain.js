@@ -3,7 +3,6 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const Entity_1 = require("./Entity");
 const Type_1 = require("./Type");
 const NumberType_1 = require("./types/NumberType");
-const BaseType_1 = require("./BaseType");
 const UuidType_1 = require("./types/UuidType");
 const $path = require("path");
 const $fs = require("fs");
@@ -30,6 +29,7 @@ function allPropertiesToLowerCase(obj, deep = false) {
 class Domain {
     constructor(adapter, connectionInfo) {
         this.__createdEntities = [];
+        this.__waitingEntities = [];
         this.__adapter = new adapter(connectionInfo);
         this.__connectionInfo = connectionInfo;
     }
@@ -57,10 +57,12 @@ class Domain {
         this.addEntityClassInfo(_entityClass, name, properties);
         this.proxifyEntityProperties(properties, _entityClass);
         this.__createdEntities.push(_entityClass);
+        this.removeFromWaiting(_entityClass);
         return _entityClass;
     }
     entity() {
         return (target) => {
+            this.__waitingEntities.push(target);
             process.nextTick(() => {
                 let inst = new target();
                 target.map(inst);
@@ -69,7 +71,7 @@ class Domain {
                 let prop;
                 for (let p of props) {
                     prop = inst[p];
-                    if (prop instanceof BaseType_1.BaseType) {
+                    if (prop instanceof Type_1.Type) {
                         properties[p] = prop;
                     }
                 }
@@ -93,6 +95,10 @@ class Domain {
     getEntityByName(entityName) {
         for (let e of this.__createdEntities) {
             if (e.name === entityName && e.domain === this)
+                return e;
+        }
+        for (let e of this.__waitingEntities) {
+            if (e.name === entityName)
                 return e;
         }
         return null;
@@ -149,6 +155,10 @@ module.exports = {\n\tup: async function up(adapter) {\n`
     async dispose() {
         if (this.__adapter.dispose)
             this.__adapter.dispose(this.__connectionInfo);
+    }
+    removeFromWaiting(entity) {
+        let i = this.__waitingEntities.indexOf(entity);
+        this.__waitingEntities = this.__waitingEntities.splice(i, 1);
     }
     removeEntities(tables, output) {
         for (let table of tables) {
@@ -283,6 +293,8 @@ module.exports = {\n\tup: async function up(adapter) {\n`
                 let desc = properties[propName].description;
                 let isVirt = desc.type == Type_1.Type.Types.Virtual;
                 let fEtity = isVirt ? entity.domain.getEntityByName(desc.foreignEntity) : null;
+                let fkField = desc.withForeign;
+                let hasMany = desc.hasMany;
                 if (isVirt && !fEtity) {
                     throw new Error(`Foreign property '${propName}' of entity '${entity.name}'refers`
                         + ` to unexisting entity '${desc.foreignEntity}'`);
@@ -293,25 +305,31 @@ module.exports = {\n\tup: async function up(adapter) {\n`
                         const chps = this.__changedProps;
                         const props = this.__properties;
                         let val = chps[propName] || props[propName];
-                        if (val === null && isVirt) {
+                        if (val == undefined && isVirt) {
                             val = new Promise((resolve, reject) => {
                                 setImmediate(async () => {
                                     try {
                                         let val;
-                                        if (desc.withForeign) {
-                                            let id = chps[desc.withForeign] || props[desc.withForeign];
+                                        if (fkField) {
+                                            let id = chps[fkField] || props[fkField];
                                             if (id) {
                                                 val = await fEtity.getById(id);
                                             }
                                             else {
                                                 val = null;
                                             }
+                                            props[desc.withForeign] = val;
                                         }
-                                        else {
+                                        else if (hasMany) {
                                             if (props.id > 0) {
+                                                val = await fEtity.getAll()
+                                                    .where(x => x.$ == $, hasMany, props.id)
+                                                    .exec();
+                                            }
+                                            else {
+                                                return [];
                                             }
                                         }
-                                        props[desc.withForeign] = val;
                                         resolve(val);
                                     }
                                     catch (e) {
@@ -341,7 +359,10 @@ module.exports = {\n\tup: async function up(adapter) {\n`
         const defaultData = {};
         for (let prop in properties) {
             if (properties.hasOwnProperty(prop)) {
-                let defVal = properties[prop].description.default;
+                let propertyDesc = properties[prop].description;
+                if (propertyDesc.type == Type_1.Type.Types.Virtual)
+                    continue;
+                let defVal = propertyDesc.default;
                 let defValFunc;
                 if (typeof defVal !== "function") {
                     defValFunc = function () {
