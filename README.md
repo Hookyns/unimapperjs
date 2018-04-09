@@ -1,4 +1,8 @@
 # UniMapperJS
+[![NPM version](https://img.shields.io/npm/v/unimapperjs.svg?colorB=green)](https://www.npmjs.com/package/unimapperjs) 
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
+[![Gitter chat](https://badges.gitter.im/UniMapperJS/Lobby.svg)](https://gitter.im/UniMapperJS/Lobby)
+
 UniMapperJS is universal Node.js (native ES6/ES7) LINQ-like object mapper (ORM/ODM) which can map whatever you create adapter for.
 
 !! Under DEVELOPMENT !!
