@@ -126,7 +126,7 @@ export abstract class Entity<TEntity extends Entity<any>>
 			}
 		}
 
-		if (!properties["id"])
+		if (!data["id"])
 		{
 			this.__isNew = true;
 		}

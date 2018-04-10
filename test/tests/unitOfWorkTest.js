@@ -11,7 +11,7 @@ const {Student} = require("../preparation/entities/Student");
 
 describe("Unit of Work & transactions", () => {
 
-	it("Simple commit", async () => {
+	it("Simple insert commit", async () => {
 		await $um.immediate();// TODO: remove - just for debug
 
 		let teacher = new Teacher({
@@ -20,14 +20,14 @@ describe("Unit of Work & transactions", () => {
 		});
 
 		await $um.UnitOfWork.create(async (uow) => {
-			await uow.insert(teacher);
+			uow.insert(teacher);
 			await uow.saveChanges();
 		});
 
-		assert.equal(~~teacher.id > 0, true, "Teacher got insert Id")
+		assert.equal(teacher.id > 0, true, "Teacher got insert Id")
 	});
 
-	it("Simple rollback", async () => {
+	it("Simple insert rollback", async () => {
 		// Delete all teachers and students
 		await Student.removeWhere(e => e.id);
 		await Teacher.removeWhere(e => e.id);
@@ -46,7 +46,7 @@ describe("Unit of Work & transactions", () => {
 			uow.snap(teacher); // Store state before edits
 
 			teacher.lastName = "Rollback Wick";
-			await uow.insert(teacher);
+			uow.insert(teacher);
 
 			assert.equal(teacher.lastName, "Rollback Wick", "Stored last name, before rollback, is 'Rollback Wick'.");
 		});
@@ -58,81 +58,196 @@ describe("Unit of Work & transactions", () => {
 		assert.equal(teachers.length, 0, "No teacher exists in storage.");
 	});
 
-	it("Simple delete commit", async () => {
+
+	it("Simple update commit", async () => {
 		let teacher = new Teacher({
 			firstName: "John",
-			lastName: "Rollback"
+			lastName: "Update"
 		});
+		await Teacher.insert(teacher);
+
+		await $um.UnitOfWork.create(async (uow) => {
+			teacher.lastName = "UpdateD";
+			uow.update(teacher);
+
+			await uow.saveChanges();
+		});
+
+		assert.equal(teacher.lastName, "UpdateD", "Teacher instance last name match.");
+
+		teacher = await Teacher.getById(teacher.id);
+		assert.equal(teacher.lastName, "UpdateD", "Teacher from storage last name match.");
+	});
+
+	it("Simple update rollback", async () => {
+		let teacher = new Teacher({
+			firstName: "John",
+			lastName: "Update"
+		});
+		await Teacher.insert(teacher);
+
+		await $um.UnitOfWork.create(async (uow) => {
+			uow.snap(teacher);
+			teacher.lastName = "UpdateD";
+			uow.update(teacher);
+		});
+
+		assert.equal(teacher.lastName, "Update", "Teacher instance last name match.");
+
+		teacher = await Teacher.getById(teacher.id);
+		assert.equal(teacher.lastName, "Update", "Teacher from storage last name match.");
+	});
+
+	it("Simple delete commit", async () => {
+		// Insert some teacher
+		let teacher = new Teacher({
+			firstName: "John",
+			lastName: "Delete"
+		});
+		await Teacher.insert(teacher);
+		assert.equal(teacher.id > 0, true, "Teacher was inserted.");
+
+		await $um.UnitOfWork.create(async (uow) => {
+			uow.remove(teacher);
+			await uow.saveChanges();
+		});
+
+		let selTeacher = await Teacher.getById(teacher.id);
+		assert.equal(selTeacher, null, "Selected teacher should be null");
 	});
 
 	it("Simple delete rollback", async () => {
+		// Insert some teacher
+		let teacher = new Teacher({
+			firstName: "John",
+			lastName: "Delete"
+		});
+		await Teacher.insert(teacher);
+		assert.equal(teacher.id > 0, true, "Teacher was inserted.");
 
+		await $um.UnitOfWork.create(async (uow) => {
+			uow.remove(teacher);
+		});
+
+		let selTeacher = await Teacher.getById(teacher.id);
+		assert.equal(selTeacher.id, teacher.id, "Selected teacher should be null");
 	});
 
-	it("Nested UoWs", async () => {
+	it("Unrelated nested UoWs commit", async () => {
+		// Delete all teachers and students
+		await Student.removeWhere(e => e.id);
+		await Teacher.removeWhere(e => e.id);
 
+		await $um.UnitOfWork.create(async (uow) => {
+			// Insert some teacher
+			let teacher = new Teacher({
+				firstName: "John",
+				lastName: "Delete"
+			});
+
+			// Not related nested UoW
+			await $um.UnitOfWork.create(async (uow) => {
+				uow.insert(teacher);
+				await uow.saveChanges();
+			});
+
+			assert.equal(teacher.id > 0, true, "Teacher was inserted.");
+
+			// Insert students
+			let s1 = new Student({
+				name: "Student no. 1",
+				teacherId: teacher.id
+			});
+			uow.insert(s1);
+
+			let s2 = new Student({
+				name: "Student no. 1",
+				teacherId: teacher.id
+			});
+			uow.insert(s2);
+
+			await uow.saveChanges();
+		});
+
+		let teachers = await Teacher.getAll().exec();
+		assert.equal(teachers.length, 1, "One teacher exists in storage.");
+
+		let students = await Student.getAll().exec();
+		assert.equal(students.length, 2, "Two students exist in storage.");
 	});
 
-	// it("assign related entity to *:1 navigation property", async () => {
-	// 	// Create Teacher
-	// 	let teacher = new Teacher({
-	// 		firstName: "John",
-	// 		lastName: "Smith"
-	// 	});
-	// 	await Teacher.insert(teacher);
-	//
-	// 	// Create student
-	// 	let student = new Student({
-	// 		name: "Lorem Ipsum",
-	// 		teacherId: teacher.id
-	// 	});
-	// 	await Student.insert(student);
-	//
-	// 	// Create another Teacher
-	// 	let teacher2 = new Teacher({
-	// 		firstName: "John",
-	// 		lastName: "Wick"
-	// 	});
-	// 	await Teacher.insert(teacher2);
-	//
-	// 	// Change teacher via navigation property
-	//
-	// 	student.teacher = teacher2;
-	// 	await student.save();
-	//
-	// 	assert.equal(student.teacherId, teacher2.id, "Id of Teacher taken from foreign field match one from navigation property Student.teacher.id.")
-	// });
+	it("Unrelated nested UoWs rollback", async () => {
+		// Delete all teachers and students
+		await Student.removeWhere(e => e.id);
+		await Teacher.removeWhere(e => e.id);
 
-	// it("access 1:N navigation property", async () => {
-	// 	// Create Teacher
-	// 	let teacher = new Teacher({
-	// 		firstName: "John",
-	// 		lastName: "Smith"
-	// 	});
-	// 	await Teacher.insert(teacher);
-	//
-	// 	let students = await teacher.students;
-	// 	assert.equal(students.constructor, Array, "Array is returned from empty 1:N navigation property");
-	// 	assert.equal(students.length, 0, "Empty array is returned from empty 1:N navigation property");
-	//
-	// 	// Create student1
-	// 	let s1 = new Student({
-	// 		name: "Lorem Ipsum",
-	// 		teacherId: teacher.id
-	// 	});
-	// 	await Student.insert(s1);
-	//
-	// 	// Create student2
-	// 	let s2 = new Student({
-	// 		name: "Dolor Sit Amet",
-	// 		teacherId: teacher.id
-	// 	});
-	// 	await Student.insert(s2);
-	//
-	// 	students = await teacher.students;
-	// 	assert.equal(students.constructor, Array, "Array is returned from non-empty 1:N navigation property");
-	// 	assert.equal(students.length, 2, "2 items are in teacher 1:N navigation property of students");
-	// 	assert.equal(students[0].teacherId, teacher.id, "Teacher of student from index 0 is right teacher");
-	// 	assert.equal(students[1].teacherId, teacher.id, "Teacher of student from index 1 is right teacher");
-	// });
+		await $um.UnitOfWork.create(async (uow) => {
+			// Insert some teacher
+			let teacher = new Teacher({
+				firstName: "John",
+				lastName: "Delete"
+			});
+
+			// Not related nested UoW
+			let nestedUoW = await $um.UnitOfWork.create(async (uow) => {
+				uow.insert(teacher);
+			});
+
+			assert.equal(nestedUoW.rolledBack, true, "Unrelated nested UoW was rolled back.");
+		});
+
+		let teachers = await Teacher.getAll().exec();
+		assert.equal(teachers.length, 0, "No teacher exists in storage.");
+	});
+
+	it("Unrelated nested UoWs throw rollback", async () => {
+		// Delete all teachers and students
+		await Student.removeWhere(e => e.id);
+		await Teacher.removeWhere(e => e.id);
+
+		let err;
+		try {
+			await $um.UnitOfWork.create(async (uow) => {
+				// Insert some teacher
+				let teacher = new Teacher({
+					firstName: "John",
+					lastName: "Delete"
+				});
+
+				// Not related nested UoW
+				await $um.UnitOfWork.create(async (uow) => {
+					uow.insert(teacher);
+					throw new Error("Some error...");
+					await uow.saveChanges();
+				});
+
+				assert.equal(teacher.id > 0, true, "Teacher was inserted.");
+
+				// Insert students
+				let s1 = new Student({
+					name: "Student no. 1",
+					teacherId: teacher.id
+				});
+				uow.insert(s1);
+
+				let s2 = new Student({
+					name: "Student no. 1",
+					teacherId: teacher.id
+				});
+				uow.insert(s2);
+
+				await uow.saveChanges();
+			});
+		} catch (e) {
+			err = e;
+		}
+
+		assert.equal(err.message, "Some error...", "Error has been throwed.");
+
+		let teachers = await Teacher.getAll().exec();
+		assert.equal(teachers.length, 0, "No teacher exists in storage.");
+
+		let students = await Student.getAll().exec();
+		assert.equal(students.length, 0, "No students exist in storage.");
+	});
 });

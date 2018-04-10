@@ -145,9 +145,8 @@ export class UnitOfWork
 	/**
 	 * Insert new entity
 	 * @param {Entity<{}>} entity
-	 * @returns {Promise<void>}
 	 */
-	async insert(entity: Entity<any>)
+	insert(entity: Entity<any>)
 	{
 		this.snapEntity(entity, true);
 		if (!(<any>entity).__isNew) console.warn("Entity is not marked as NEW but nsert is requested", entity);
@@ -162,9 +161,8 @@ export class UnitOfWork
 	/**
 	 * Update given entity
 	 * @param {Entity<{}>} entity
-	 * @returns {Promise<void>}
 	 */
-	async update(entity: Entity<any>)
+	update(entity: Entity<any>)
 	{
 		this.snapEntity(entity, true);
 		if (!(<any>entity).__isDirty) console.warn("Entity is not marked as NEW but nsert is requested", entity);
@@ -179,9 +177,8 @@ export class UnitOfWork
 	/**
 	 * Remove entity from repository
 	 * @param {Entity<{}>} entity
-	 * @returns {Promise<void>}
 	 */
-	async remove(entity: Entity<any>)
+	remove(entity: Entity<any>)
 	{
 		this.touchEntity(entity);
 		(<any>entity).__isRemoved = true;
@@ -267,9 +264,14 @@ export class UnitOfWork
 		for (let i = symbols.length - 1; i >= 0; i--)
 		{
 			entity = this.__touchedEntitiesMap[symbols[i]];
-			snap = (<any>entity).__snaps[<any>this.__symbol]; // snap for this UoW
+
+			// Find snap if exists
+			snap = (<any>entity).__snaps[<any>this.__symbol] || <any>{
+				__changedProps: {}
+			}; // snap for this UoW
+
 			(<any>entity).__changedProps = snap.__changedProps;
-			(<any>entity).__properties = snap.__properties;
+			if (snap.__properties) (<any>entity).__properties = snap.__properties;
 		}
 
 		this.rolledBack = true;

@@ -8,9 +8,9 @@ export declare class UnitOfWork {
     constructor(parent?: UnitOfWork);
     static create(callback: (uow: UnitOfWork) => void): Promise<UnitOfWork>;
     nest(callback: (uow: UnitOfWork) => void): Promise<UnitOfWork>;
-    insert(entity: Entity<any>): Promise<void>;
-    update(entity: Entity<any>): Promise<void>;
-    remove(entity: Entity<any>): Promise<void>;
+    insert(entity: Entity<any>): void;
+    update(entity: Entity<any>): void;
+    remove(entity: Entity<any>): void;
     saveChanges(): Promise<void>;
     snap(entity: Entity<any> | Array<Entity<any>>): void;
     private touchEntity(entity);

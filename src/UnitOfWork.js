@@ -51,17 +51,17 @@ class UnitOfWork {
             throw e;
         }
     }
-    async insert(entity) {
+    insert(entity) {
         this.snapEntity(entity, true);
         if (!entity.__isNew)
             console.warn("Entity is not marked as NEW but nsert is requested", entity);
     }
-    async update(entity) {
+    update(entity) {
         this.snapEntity(entity, true);
         if (!entity.__isDirty)
             console.warn("Entity is not marked as NEW but nsert is requested", entity);
     }
-    async remove(entity) {
+    remove(entity) {
         this.touchEntity(entity);
         entity.__isRemoved = true;
     }
@@ -96,9 +96,12 @@ class UnitOfWork {
         let symbols = Object.getOwnPropertySymbols(this.__touchedEntitiesMap);
         for (let i = symbols.length - 1; i >= 0; i--) {
             entity = this.__touchedEntitiesMap[symbols[i]];
-            snap = entity.__snaps[this.__symbol];
+            snap = entity.__snaps[this.__symbol] || {
+                __changedProps: {}
+            };
             entity.__changedProps = snap.__changedProps;
-            entity.__properties = snap.__properties;
+            if (snap.__properties)
+                entity.__properties = snap.__properties;
         }
         this.rolledBack = true;
         this.reset();

@@ -32,7 +32,7 @@ class Entity {
                 }
             }
         }
-        if (!properties["id"]) {
+        if (!data["id"]) {
             this.__isNew = true;
         }
         else {
