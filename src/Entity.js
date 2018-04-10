@@ -3,12 +3,15 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const Query_1 = require("./Query");
 const Type_1 = require("./Type");
 const NumberType_1 = require("./types/NumberType");
+const WhereExpression_1 = require("./WhereExpression");
 const ID_FIELD_NAME = "id";
 class Entity {
     constructor(data = {}, markDataAsChangedProperties = true) {
-        this.__deleted = false;
         this.__snaps = {};
         this.__symbol = Symbol();
+        this.__isRemoved = false;
+        this.__isNew = false;
+        this.__isDirty = false;
         let defaultData = this.constructor.__defaultData;
         let changedProps = {}, p;
         let propKeys = Object.keys(data);
@@ -29,8 +32,14 @@ class Entity {
                 }
             }
         }
+        if (!properties["id"]) {
+            this.__isNew = true;
+        }
+        else {
+            this.__isDirty = true;
+        }
         this.__properties = properties;
-        this.__changedProps = changedProps || {};
+        this.__changedProps = changedProps;
     }
     static addUnique(...fields) {
         console.warn("Entity.addUnique() not implemented yet!");
@@ -46,6 +55,7 @@ class Entity {
             throw new Error("This entity already exists");
         }
         await this.domain.__adapter.insert(entity, entity.getData(), connection);
+        entity.resetFlags();
         entity.storeChanges();
         await entity.saveRelatedVirtuals(connection);
     }
@@ -53,8 +63,17 @@ class Entity {
         if (!(entity instanceof Entity)) {
             throw new Error("Parameter entity must be of type Entity");
         }
-        entity.__deleted = true;
-        await this.domain.__adapter.remove(this, { id: entity.__properties[ID_FIELD_NAME] }, connection);
+        await this.domain.__adapter.remove(this, {
+            field: "id",
+            func: "=",
+            args: entity.__properties[ID_FIELD_NAME]
+        }, connection);
+        entity.__isRemoved = true;
+    }
+    static async removeWhere(expression, ...args) {
+        let expr = new WhereExpression_1.WhereExpression();
+        expr.addExpression(expression, ...args);
+        await this.domain.__adapter.remove(this, expr.getConditions());
     }
     static getAll() {
         return new Query_1.Query(this);
@@ -78,7 +97,8 @@ class Entity {
     static seed() {
         return [];
     }
-    static map(map) { }
+    static map(map) {
+    }
     static reconstructFrom(data) {
         let entity = new this.constructor(data, false);
         return entity;
@@ -130,10 +150,16 @@ class Entity {
             if (data.hasOwnProperty(field)) {
                 if (this[field] !== data[field] && field != ID_FIELD_NAME) {
                     this.__changedProps[field] = data[field];
+                    this.__isDirty = true;
                 }
             }
         }
         return this;
+    }
+    resetFlags() {
+        this.__isNew = false;
+        this.__isDirty = false;
+        this.__isRemoved = false;
     }
     storeChanges() {
         const chp = this.__changedProps;

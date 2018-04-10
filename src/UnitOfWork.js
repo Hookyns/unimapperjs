@@ -1,27 +1,50 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-const connections = [];
 class UnitOfWork {
-    constructor() {
+    constructor(parent = undefined) {
+        this.rolledBack = false;
         this.__changesSaved = false;
         this.__touchedEntitiesMap = {};
-        this.__domains = [];
         this.__symbol = Symbol("Unit of Work");
         if (new.target != Activator) {
             throw new Error("This constructor is private");
         }
+        this.__parentUnit = parent;
     }
     static async create(callback) {
-        if (!(callback instanceof Promise) && callback.constructor.name != "AsyncFunction") {
-            throw new Error("Unit of work block (callback) must be async function.");
+        if (callback.constructor.name != "AsyncFunction") {
+            throw new Error("Unit of work block (callback) must be async function (returning promise).");
         }
         const uow = Reflect.construct(UnitOfWork, [], Activator);
         try {
             await callback(uow);
-            if (!uow.__changesSaved)
+            if (!uow.__changesSaved) {
                 await uow.rollbackChanges();
-            else
+            }
+            else {
                 await uow.commitChanges();
+            }
+            return uow;
+        }
+        catch (e) {
+            await uow.rollbackChanges();
+            throw e;
+        }
+    }
+    async nest(callback) {
+        if (callback.constructor.name != "AsyncFunction") {
+            throw new Error("Unit of work block (callback) must be async function (returning promise).");
+        }
+        const uow = Reflect.construct(UnitOfWork, [this], Activator);
+        try {
+            await callback(uow);
+            if (!uow.__changesSaved) {
+                await uow.rollbackChanges();
+            }
+            else {
+                await uow.commitChanges();
+            }
+            return uow;
         }
         catch (e) {
             await uow.rollbackChanges();
@@ -29,25 +52,18 @@ class UnitOfWork {
         }
     }
     async insert(entity) {
-        this.touchEntity(entity);
-        const domain = entity.constructor.domain;
-        await this.createTransaction(domain);
-        const conn = this.getConnection(domain);
-        await entity.constructor.insert(entity, conn);
+        this.snapEntity(entity, true);
+        if (!entity.__isNew)
+            console.warn("Entity is not marked as NEW but nsert is requested", entity);
     }
     async update(entity) {
-        this.touchEntity(entity);
-        const domain = entity.constructor.domain;
-        await this.createTransaction(domain);
-        const conn = this.getConnection(domain);
-        await entity.save(conn);
+        this.snapEntity(entity, true);
+        if (!entity.__isDirty)
+            console.warn("Entity is not marked as NEW but nsert is requested", entity);
     }
     async remove(entity) {
-        const entCtrl = entity.constructor;
-        const domain = entCtrl.domain;
-        await this.createTransaction(domain);
-        const conn = this.getConnection(domain);
-        await entCtrl.remove(entity, conn);
+        this.touchEntity(entity);
+        entity.__isRemoved = true;
     }
     async saveChanges() {
         this.__changesSaved = true;
@@ -66,52 +82,62 @@ class UnitOfWork {
     touchEntity(entity) {
         this.__touchedEntitiesMap[entity.__symbol] = entity;
     }
-    snapEntity(e) {
-        e.__snaps[this.__symbol] = e.__changedProps;
+    snapEntity(e, preventOverride = false) {
+        if (!preventOverride || !e.__snaps[this.__symbol]) {
+            e.__snaps[this.__symbol] = {
+                __changedProps: Object.assign({}, e.__changedProps),
+                __properties: Object.assign({}, e.__properties)
+            };
+        }
         this.touchEntity(e);
     }
     async rollbackChanges() {
-        const domains = this.__domains;
-        for (let d = 0; d < domains.length; d++) {
-            await domains[d].__adapter.rollback(connections[d]);
+        let entity, snap;
+        let symbols = Object.getOwnPropertySymbols(this.__touchedEntitiesMap);
+        for (let i = symbols.length - 1; i >= 0; i--) {
+            entity = this.__touchedEntitiesMap[symbols[i]];
+            snap = entity.__snaps[this.__symbol];
+            entity.__changedProps = snap.__changedProps;
+            entity.__properties = snap.__properties;
         }
-        let entity;
-        for (let e in this.__touchedEntitiesMap) {
-            if (this.__touchedEntitiesMap.hasOwnProperty(e)) {
-                entity = this.__touchedEntitiesMap[e];
-                entity.__changedProps = entity.__snaps[this.__symbol] || {};
+        this.rolledBack = true;
+        this.reset();
+    }
+    async commitChanges() {
+        const domains = {};
+        let touched = this.__touchedEntitiesMap;
+        let symbols = Object.getOwnPropertySymbols(touched);
+        let domain, adapter, conn, ctor, domainItem, entity;
+        for (let i = symbols.length - 1; i >= 0; i--) {
+            entity = touched[symbols[i]];
+            ctor = entity.constructor;
+            domain = ctor.domain;
+            domainItem = domains[domain.__symbol];
+            if (!domainItem) {
+                adapter = domain.__adapter;
+                conn = await adapter.getConnection();
+                domains[domain.__symbol] = domainItem = [adapter, conn];
+                await adapter.startTransaction(conn);
+            }
+            if (entity.__isRemoved) {
+                await ctor.remove(entity, domainItem[1]);
+            }
+            else if (entity.__isNew) {
+                await ctor.insert(entity, domainItem[1]);
+            }
+            else if (entity.__isDirty) {
+                await entity.save(domainItem[1]);
             }
         }
-        this.reset();
+        symbols = Object.getOwnPropertySymbols(domains);
+        for (let i = symbols.length - 1; i >= 0; i--) {
+            domainItem = domains[symbols[i]];
+            domainItem[0].commit(domainItem[1]);
+        }
     }
     reset() {
         this.__touchedEntitiesMap = {};
-        this.__domains = [];
         this.__changesSaved = false;
-    }
-    async commitChanges() {
-        const domains = this.__domains;
-        for (let d = 0; d < domains.length; d++) {
-            await domains[d].__adapter.commit(connections[d]);
-        }
-    }
-    async createTransaction(domain) {
-        const domains = this.__domains;
-        if (domains.indexOf(domain) == -1) {
-            const adapter = domain.__adapter;
-            const conn = await adapter.getConnection();
-            await adapter.startTransaction(conn);
-            domains.push(domain);
-            connections.push(conn);
-        }
-    }
-    getConnection(domain) {
-        let i;
-        const domains = this.__domains;
-        if ((i = domains.indexOf(domain)) != -1) {
-            return connections[i];
-        }
-        throw new Error("No connection stored for this domain yet");
     }
 }
 exports.UnitOfWork = UnitOfWork;

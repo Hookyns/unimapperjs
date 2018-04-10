@@ -2,7 +2,6 @@ import { Entity } from "./Entity";
 export declare class Query<TEntity extends Entity<any>> {
     static numberOfCachedExpressions: number;
     private entity;
-    private filters;
     private whereArgs;
     private selectFields;
     private mapResultTo;
@@ -10,6 +9,7 @@ export declare class Query<TEntity extends Entity<any>> {
     private skipValue;
     private conditions;
     private orders;
+    private whereExpression;
     constructor(entity: typeof Entity);
     exec(): Promise<number | Array<any>>;
     count(): Query<TEntity>;

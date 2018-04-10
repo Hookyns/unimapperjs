@@ -5,6 +5,7 @@ export declare class Domain {
     private __connectionInfo;
     private __createdEntities;
     private __waitingEntities;
+    protected __symbol: Symbol;
     constructor(adapter: IAdapterStatic, connectionInfo: any);
     createEntity(name: any, properties: any, idType?: any, _entityClass?: typeof Entity): typeof Entity;
     entity(): (target: Function) => void;

@@ -6,19 +6,27 @@ export declare abstract class Entity<TEntity extends Entity<any>> {
     private static _description;
     private __properties;
     private __changedProps;
-    private __deleted;
     private static __defaultData;
     protected __snaps: {
         [uowKey: string]: {
-            [key: string]: any;
+            __changedProps: {
+                [key: string]: any;
+            };
+            __properties: {
+                [key: string]: any;
+            };
         };
     };
     protected __symbol: Symbol;
+    protected __isRemoved: boolean;
+    protected __isNew: boolean;
+    protected __isDirty: boolean;
     constructor(data?: any, markDataAsChangedProperties?: boolean);
     static addUnique(...fields: Array<string>): void;
     static addPrimary(...fields: Array<string>): void;
     static insert<TEntity extends Entity<any>>(entity: Entity<TEntity>, connection?: any): Promise<void>;
     static remove<TEntity extends Entity<any>>(entity: Entity<TEntity>, connection?: any): Promise<void>;
+    static removeWhere<TEntity extends Entity<any>>(expression: (entity: TEntity) => boolean, ...args: any[]): Promise<void>;
     static getAll<TEntity extends Entity<any>>(): Query<TEntity>;
     static getById<TEntity extends Entity<any>>(id: number | string, ...fields: Array<string>): Promise<any>;
     static getDescription(): {};
@@ -30,6 +38,7 @@ export declare abstract class Entity<TEntity extends Entity<any>> {
     select(...fields: Array<string>): any;
     save(connection: any): Promise<void>;
     mapFrom(data: any): TEntity;
+    private resetFlags();
     private storeChanges();
     private saveRelatedVirtuals(connection);
     private saveRelatedManyVirtuals(desc, promises, connection);

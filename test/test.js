@@ -17,7 +17,7 @@ require("./tests/migrateTest")(() => { // Must be before any test with entities
 
 	require("./tests/entityOperationsTest");
 	require("./tests/entityRelationOperationsTest");
-
+	require("./tests/unitOfWorkTest");
 
 	require("./tests/entityInstanceCreationTest");
 	require("./tests/domainDisposeTest"); // Should be last - dispose domain

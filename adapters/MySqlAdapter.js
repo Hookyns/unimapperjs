@@ -112,14 +112,15 @@ function fieldDesc(name, description) {
  * List of function mapped to actions
  */
 const whereBuildActions = {
-	"=": (field, val) => escapeIdSqlString(field) + ` = '${escapeSqlString(val)}'`,
-	">": (field, val) => escapeIdSqlString(field) + ` > '${escapeSqlString(val)}'`,
-	">=": (field, val) => escapeIdSqlString(field) + ` >= '${escapeSqlString(val)}'`,
-	"<": (field, val) => escapeIdSqlString(field) + ` < '${escapeSqlString(val)}'`,
-	"<=": (field, val) => escapeIdSqlString(field) + ` <= '${escapeSqlString(val)}'`,
-	"includes": (field, val) => escapeIdSqlString(field) + ` LIKE '${escapeSqlString("%" + val + "%")}'`,
-	"startswith": (field, val) => escapeIdSqlString(field) + ` LIKE '${escapeSqlString(val + "%")}'`,
-	"endswith": (field, val) => escapeIdSqlString(field) + ` LIKE '${escapeSqlString("%" + val)}'`,
+	"=": (field, val) => escapeIdSqlString(field) + ` = ${escapeSqlString(val)}`,
+	"!=": (field, val) => escapeIdSqlString(field) + ` != ${escapeSqlString(val)}`,
+	">": (field, val) => escapeIdSqlString(field) + ` > ${escapeSqlString(val)}`,
+	">=": (field, val) => escapeIdSqlString(field) + ` >= ${escapeSqlString(val)}`,
+	"<": (field, val) => escapeIdSqlString(field) + ` < ${escapeSqlString(val)}`,
+	"<=": (field, val) => escapeIdSqlString(field) + ` <= ${escapeSqlString(val)}`,
+	"includes": (field, val) => escapeIdSqlString(field) + ` LIKE ${escapeSqlString("%" + val + "%")}`,
+	"startswith": (field, val) => escapeIdSqlString(field) + ` LIKE ${escapeSqlString(val + "%")}`,
+	"endswith": (field, val) => escapeIdSqlString(field) + ` LIKE ${escapeSqlString("%" + val)}`,
 	"exists": (field) => escapeIdSqlString(field) + " IS NOT NULL",
 };
 
@@ -318,14 +319,20 @@ class MySqlAdapter {
 	/**
 	 * Remove record
 	 * @param {Function<Entity>} entity Entity class
-	 * @param {Object} [where]
+	 * @param {Array<{}>} [conditions]
 	 * @param [connection]
 	 */
-	async remove(entity, where = {}, connection) {
+	async remove(entity, conditions = [], connection) {
 		const conn = connection || await this.getConnection();
-		let sql = conn.format(`DELETE FROM ${entity.name} WHERE ?;`, [where]);
-		await conn.query(sql);
-		this.logQuery(sql, null);
+
+		let query = `DELETE FROM \`${entity.name}\``;
+
+		if (conditions.length > 0) {
+			query += " WHERE " + buildWhereCondition(conditions);
+		}
+
+		await conn.query(query);
+		this.logQuery(query, null);
 		if (!connection) await conn.release();
 	}
 

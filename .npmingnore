@@ -1,4 +1,4 @@
 test
-test-results.xml
 *.ts
+*.js.map
 tsconfig.json

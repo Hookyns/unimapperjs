@@ -8,6 +8,7 @@ const $path = require("path");
 const $fs = require("fs");
 const prettify = require("../node_modules/json-prettify/json2").stringify;
 const Types = Type_1.Type.Types;
+const ID_FIELD_NAME = "id";
 function toText(data, tabs) {
     return prettify(data, null, "\t").replace(/^/gm, tabs);
 }
@@ -30,6 +31,7 @@ class Domain {
     constructor(adapter, connectionInfo) {
         this.__createdEntities = [];
         this.__waitingEntities = [];
+        this.__symbol = Symbol();
         this.__adapter = new adapter(connectionInfo);
         this.__connectionInfo = connectionInfo;
     }
@@ -38,7 +40,7 @@ class Domain {
             throw new Error("Parameter 'properties' is not Object.");
         }
         if (!_entityClass) {
-            if (!("id" in properties)) {
+            if (!(ID_FIELD_NAME in properties)) {
                 if (!idType) {
                     idType = new NumberType_1.NumberType().primary().autoIncrement();
                 }
@@ -75,7 +77,7 @@ class Domain {
                         properties[p] = prop;
                     }
                 }
-                let idProp = properties["id"];
+                let idProp = properties[ID_FIELD_NAME];
                 if (!idProp) {
                     throw new Error("Id property is missing in entity " + target.name);
                 }
@@ -349,6 +351,7 @@ module.exports = {\n\tup: async function up(adapter) {\n`
                                 }
                             }
                         }
+                        this.__isDirty = this.__changedProps[propName] != value;
                         this.__changedProps[propName] = value;
                     }
                 });
