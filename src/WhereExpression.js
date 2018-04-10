@@ -5,15 +5,26 @@ const expression_1 = require("./expression");
 const LOG_OPERATORS_REGEX = /(\|\|)|(&&)/;
 const SPLIT_GROUP_REGEX = /(^|\||&| )\(/;
 const REGEX_CACHE = {};
+/**
+ * Map creating cache for expressions
+ * @type {Map}
+ */
 const exprCacheMap = new Map();
+/**
+ * Split expression to groups maked by brackets
+ * @param expr
+ * @returns {Array}
+ */
 function splitByGroups(expr) {
     const parts = [];
     let bracketIndex, end, offset = 0, opening, closing, char;
     let part = expr;
     while ((bracketIndex = part.search(SPLIT_GROUP_REGEX)) != -1) {
+        // Search FIX - match symbol before bracket
         if (bracketIndex != 0 || part.charAt(0) != "(") {
             bracketIndex++;
         }
+        // Count brackets -> find ending bracket
         opening = 1;
         closing = 0;
         offset = bracketIndex + 1;
@@ -31,6 +42,7 @@ function splitByGroups(expr) {
         }
         parts.push(part.slice(0, bracketIndex).trim());
         end = offset - 1;
+        // Find nested groups
         parts.push(splitByGroups(part.slice(bracketIndex + 1, end).trim()));
         part = part.slice(end + 1).trim();
     }
@@ -39,10 +51,18 @@ function splitByGroups(expr) {
     }
     return parts;
 }
+/**
+ * Split part of expression by logical operators
+ * @param str
+ * @param entityRegExp
+ * @returns {Array}
+ */
 function splitByLogicalOperators(str, entityRegExp) {
     let operatorIndex, parts = [], part;
     while ((operatorIndex = str.search(LOG_OPERATORS_REGEX)) != -1) {
         part = str.slice(0, operatorIndex).trim();
+        // Check if this part is relevant for query -> contains entity variable
+        // -> if it do nothing with entity, it shouldn't be in query eg. 1 == 1
         if (entityRegExp.test(part)) {
             parts.push(part);
         }
@@ -54,6 +74,13 @@ function splitByLogicalOperators(str, entityRegExp) {
     }
     return parts;
 }
+/**
+ * Go through array with groups and split that groups into array by loical operators
+ * @param groups
+ * @param entityRegExp
+ * @param nested
+ * @returns {*}
+ */
 function splitGroupsByLogicalOperators(groups, entityRegExp, nested = false) {
     let parts = [], tmp;
     for (let part of groups) {
@@ -70,6 +97,7 @@ function splitGroupsByLogicalOperators(groups, entityRegExp, nested = false) {
             }
         }
     }
+    // Check if there are some doubled logical operators after removing irelevant parts
     for (let i = 0; i < parts.length; i++) {
         if ((parts[i] == "and" || parts[i] == "or") && (parts[i + 1] == "and" || parts[i + 1] == "or")) {
             parts.splice(i, 1);
@@ -77,14 +105,22 @@ function splitGroupsByLogicalOperators(groups, entityRegExp, nested = false) {
         }
     }
     const last = parts[parts.length - 1];
+    // Remove operators at end of group
     if (last == "or" || last == "and") {
         parts = parts.slice(0, -1);
     }
+    // If it's only one part, return that part; but returned value must be always array
     if (parts.length == 1 && (nested || parts[0].constructor == Array)) {
         return parts[0];
     }
     return parts;
 }
+/**
+ * Take groups of expression parts and create new object with parts description
+ * @param {Array} parts
+ * @param {RegExp} exprPartRegExp
+ * @returns {Array}
+ */
 function describeExpressionParts(parts, exprPartRegExp) {
     let result = [], match, desc, fields, func, arg;
     for (let part of parts) {
@@ -119,6 +155,11 @@ function describeExpressionParts(parts, exprPartRegExp) {
     }
     return result;
 }
+/**
+ * Update expression description
+ * @param desc
+ * @param args
+ */
 function updateArgsInDescribedExpression(desc, args) {
     for (let part of desc) {
         if (part.constructor === Array) {
@@ -134,6 +175,11 @@ function updateArgsInDescribedExpression(desc, args) {
         }
     }
 }
+/**
+ * Add expression to cache
+ * @param {Function} expr
+ * @param {Object} data
+ */
 function addExprToCache(expr, data) {
     let strExpr = expr.toString();
     if (exprCacheMap.size > Query_1.Query.numberOfCachedExpressions) {
@@ -141,9 +187,19 @@ function addExprToCache(expr, data) {
     }
     exprCacheMap.set(strExpr, data);
 }
+/**
+ * Get stored expression
+ * @param {Function} expr
+ * @returns {Object}
+ */
 function getExprFromCache(expr) {
     return exprCacheMap.get(expr.toString());
 }
+/**
+ * Return cached RegExps for given entity
+ * @param entityName
+ * @returns {{MATCH_ENTITY_REGEXP: RegExp, OPERATORS_REGEX: RegExp}}
+ */
 function getEntityRegExps(entityName) {
     let REGEXPS = REGEX_CACHE[entityName];
     if (!REGEXPS) {
@@ -155,6 +211,11 @@ function getEntityRegExps(entityName) {
     }
     return REGEXPS;
 }
+/**
+ * Create WHERE descriptive object
+ * @param expr
+ * @returns {{entity: String, expr: String, desc: Array}}
+ */
 function convertWhereExpr(expr) {
     expr = expression_1.matchExpression(expr);
     const exprs = expr.expr;
@@ -164,16 +225,38 @@ function convertWhereExpr(expr) {
     expr.desc = describeExpressionParts(parts, OPERATORS_REGEX);
     return expr;
 }
+// noinspection JSUnusedLocalSymbols
+/**
+ * List of supported function/methods
+ * @type {string[]}
+ */
 const supportedFunctions = ["startsWith", "includes", "endsWith"];
+/**
+ * Where expression condition builder
+ */
 class WhereExpression {
     constructor() {
+        /**
+         * List of conditions
+         * @private
+         */
         this.conditions = [];
+        /**
+         * List of filter arguments
+         * @private
+         */
         this.whereArgs = [];
     }
+    /**
+     * Add expression to builder
+     * @param {(entity) => boolean} expression
+     * @param args
+     */
     addExpression(expression, ...args) {
         const fromCacheMap = getExprFromCache(expression);
         if (!fromCacheMap) {
             const expr = convertWhereExpr(expression);
+            // If some coditions already exists, add this WHERE as AND
             if (this.conditions.length != 0) {
                 expr.desc.unshift("and");
             }
@@ -186,8 +269,14 @@ class WhereExpression {
             this.conditions = this.conditions.concat(fromCacheMap.desc);
         }
     }
+    /**
+     * Return object with conditions
+     * @returns {{}[]}
+     */
     getConditions() {
+        // Put actual WHERE arguments to conditions
         updateArgsInDescribedExpression(this.conditions, this.whereArgs);
+        // Return updated cnditions
         return this.conditions;
     }
 }

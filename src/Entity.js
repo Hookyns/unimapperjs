@@ -4,13 +4,45 @@ const Query_1 = require("./Query");
 const Type_1 = require("./Type");
 const NumberType_1 = require("./types/NumberType");
 const WhereExpression_1 = require("./WhereExpression");
+// Name of field holding entity identifier
 const ID_FIELD_NAME = "id";
+/**
+ * @class
+ */
 class Entity {
+    //endregion
+    //region Ctor
+    /**
+     * @param [data]
+     * @param {boolean} [markDataAsChangedProperties]
+     */
     constructor(data = {}, markDataAsChangedProperties = true) {
+        /**
+         * Entity states - used from UnitOfWork
+         * @type {{}}
+         * @private
+         */
         this.__snaps = {};
+        // noinspection JSUnusedGlobalSymbols
+        /**
+         * Entity Symbol ID
+         * @private
+         */
         this.__symbol = Symbol();
+        /**
+         * Delete state flag
+         * @protected
+         */
         this.__isRemoved = false;
+        /**
+         * Insert state flag
+         * @protected
+         */
         this.__isNew = false;
+        /**
+         * Update state flag
+         * @protected
+         */
         this.__isDirty = false;
         let defaultData = this.constructor.__defaultData;
         let changedProps = {}, p;
@@ -41,12 +73,30 @@ class Entity {
         this.__properties = properties;
         this.__changedProps = changedProps;
     }
+    //endregion
+    //region Static methods
+    /**
+     * Add unique key created by more fields
+     * @param {Array<String>} fields List of fields
+     */
     static addUnique(...fields) {
         console.warn("Entity.addUnique() not implemented yet!");
+        // return this;
     }
+    /**
+     * Add primary key created by more fields
+     * @param {Array<String>} fields List of fields
+     */
     static addPrimary(...fields) {
         console.warn("Entity.addPrimary() not implemented yet!");
+        // return this;
     }
+    // noinspection JSUnusedGlobalSymbols
+    /**
+     * Insert new entity
+     * @param {Entity} entity
+     * @param [connection]
+     */
     static async insert(entity, connection) {
         if (!(entity instanceof Entity)) {
             throw new Error("Parameter entity must be of type Entity");
@@ -56,9 +106,18 @@ class Entity {
         }
         await this.domain.__adapter.insert(entity, entity.getData(), connection);
         entity.resetFlags();
+        // TODO: dořešit kaskádované uložení entit, včetně insertu a mazání; u required entit i u hasMany
+        // Při editaci seznamu entit je třeba dohledat cizí klíč a ten upravit
+        //      Př. přidám Employee do Enterprise.users bez toho, abych měnil enterpriseId u entity Employee, chci, aby se to změnilo samo
         entity.storeChanges();
         await entity.saveRelatedVirtuals(connection);
     }
+    // noinspection JSUnusedGlobalSymbols
+    /**
+     * Remove entity
+     * @param {Entity} entity Entity which should be removed
+     * @param [connection]
+     */
     static async remove(entity, connection) {
         if (!(entity instanceof Entity)) {
             throw new Error("Parameter entity must be of type Entity");
@@ -70,20 +129,45 @@ class Entity {
         }, connection);
         entity.__isRemoved = true;
     }
+    // noinspection JSUnusedGlobalSymbols
+    /**
+     * Remove entities matching given query where expression
+     * @param {(entity: TEntity) => boolean} expression
+     * @param args
+     * @returns {Promise<void>}
+     */
     static async removeWhere(expression, ...args) {
         let expr = new WhereExpression_1.WhereExpression();
         expr.addExpression(expression, ...args);
         await this.domain.__adapter.remove(this, expr.getConditions());
     }
+    // noinspection JSUnusedGlobalSymbols
+    /**
+     * Get all records
+     * @template TEntity
+     * @returns {Query<TEntity>}
+     */
     static getAll() {
         return new Query_1.Query(this);
     }
+    // noinspection JSUnusedGlobalSymbols
+    /**
+     * Select record by its id
+     * @param {Number | Uuid | *} id
+     * @param fields
+     * @template TEntity
+     * @returns {TEntity}
+     */
     static async getById(id, ...fields) {
         const entity = await this.domain.__adapter.select(this, fields || [], [{ field: ID_FIELD_NAME, func: "=", arg: id }]);
         if (!entity[0])
             return null;
         return Reflect.construct(this, [entity[0], true]);
     }
+    /**
+     * Returns description of entity
+     * @returns {{}}
+     */
     static getDescription() {
         const description = {};
         const fields = this._description;
@@ -94,15 +178,34 @@ class Entity {
         }
         return description;
     }
+    // noinspection JSUnusedGlobalSymbols
+    /**
+     * Method for seeding. Implement this method and return data which should be seeded.
+     */
     static seed() {
         return [];
     }
+    /**
+     * Entity mapping. Implement this method.
+     * @param {Entity} map
+     */
     static map(map) {
     }
+    // noinspection JSUnusedGlobalSymbols
+    /**
+     * Reconstruct entity instance from given data. It'll not mark properties as changed.
+     * @param {Object} data
+     */
     static reconstructFrom(data) {
         let entity = new this.constructor(data, false);
         return entity;
     }
+    //endregion
+    //region Public methods
+    /**
+     * Return object with raw data
+     * @returns {{}}
+     */
     getData() {
         const desc = this.constructor._description;
         const rtrn = {}, props = this.__properties, chp = this.__changedProps;
@@ -113,6 +216,10 @@ class Entity {
         }
         return rtrn;
     }
+    /**
+     * Return object with raw data but just that changed
+     * @returns {{}}
+     */
     getChangedData() {
         const desc = this.constructor._description;
         const changedData = {}, chp = this.__changedProps;
@@ -123,8 +230,15 @@ class Entity {
         }
         return changedData;
     }
+    // noinspection JSUnusedGlobalSymbols
+    /**
+     * Return new object with selected properties
+     * @param {Array<String>} fields List of property names
+     * @returns {{}}
+     */
     select(...fields) {
         const outObj = {};
+        // If no fields specified, select all
         if (!fields) {
             return Object.assign({}, this.__properties);
         }
@@ -133,7 +247,13 @@ class Entity {
         }
         return outObj;
     }
+    // noinspection JSUnusedGlobalSymbols
+    /**
+     * Save tracked changes
+     * @param [connection]
+     */
     async save(connection) {
+        // Return if no props were changed
         if (Object.keys(this.__changedProps).length === 0) {
             return;
         }
@@ -145,7 +265,22 @@ class Entity {
         this.storeChanges();
         await this.saveRelatedVirtuals(connection);
     }
+    // noinspection JSUnusedGlobalSymbols
+    /**
+     * Remove changes on this entity instance
+     */
+    rollbackChanges() {
+        this.__changedProps = {};
+        this.__isDirty = false;
+    }
+    // noinspection JSUnusedGlobalSymbols
+    /**
+     * Map data from given Object into current entity instance.
+     * Data will me marked as changed if differ from existing values.
+     * @param {Object} data
+     */
     mapFrom(data) {
+        //let entity: TEntity = new (<any>this.constructor)();
         for (let field in data) {
             if (data.hasOwnProperty(field)) {
                 if (this[field] !== data[field] && field != ID_FIELD_NAME) {
@@ -156,11 +291,19 @@ class Entity {
         }
         return this;
     }
+    //endregion
+    //region Private methods
+    /**
+     * Reset state flags
+     */
     resetFlags() {
         this.__isNew = false;
         this.__isDirty = false;
         this.__isRemoved = false;
     }
+    /**
+     * Copy values from changes to own properties and clear list of changed values
+     */
     storeChanges() {
         const chp = this.__changedProps;
         const props = this.__properties;
@@ -169,15 +312,27 @@ class Entity {
                 props[propName] = chp[propName];
             }
         }
-        this.__changedProps = {};
+        this.rollbackChanges();
     }
+    /**
+     * Update changed related entities and go through many relations and update it's foreign key's
+     * @param {{}} connection
+     * @returns {Promise<void>}
+     */
     async saveRelatedVirtuals(connection) {
         const desc = this.constructor._description;
         let promises = [];
         this.saveSimpleRelatedVirtuals(desc, promises, connection);
+        // 1:N
         this.saveRelatedManyVirtuals(desc, promises, connection);
         await Promise.all(promises);
     }
+    /**
+     * Go through virtual collections of related entities and save them
+     * @param {{}} desc
+     * @param {{}[]} promises
+     * @param {{}} connection
+     */
     saveRelatedManyVirtuals(desc, promises, connection) {
         let manys = this.getManyVirtuals(desc), fieldName, relatedEntity, foreignField, collection;
         for (fieldName in manys) {
@@ -186,6 +341,8 @@ class Entity {
                 for (relatedEntity of collection) {
                     foreignField = desc[fieldName].description.hasMany;
                     relatedEntity[foreignField] = this.id;
+                    // TODO: If it has virtual type too, it should be set too
+                    //relatedEntity[virtualFieldName] = this;
                     if (relatedEntity.id == undefined) {
                         promises.push(relatedEntity.save(connection));
                     }
@@ -196,14 +353,24 @@ class Entity {
             }
         }
     }
+    /**
+     * Save directly related virtual properties/entities
+     * @param {{}} desc
+     * @param {Promise[]} promises
+     * @param {{}} connection
+     */
     saveSimpleRelatedVirtuals(desc, promises, connection) {
-        let virts = this.getChangedVirtuals(desc);
+        let virts = this.getChangedVirtuals(desc); // N:1
         for (let fieldName in virts) {
             if (virts.hasOwnProperty(fieldName)) {
                 let relatedEntity = virts[fieldName];
+                // Set related ID to withForeign field of this property
                 let foreignField = desc[fieldName].description.withForeign;
                 if (foreignField) {
                     this[foreignField] = relatedEntity.id;
+                    // TODO: set from second side too.
+                    // relatedEntity[relatedVirtualField] = this;
+                    // relatedEntity[relatedForeignField] = this.id;
                 }
                 if (relatedEntity.id == undefined) {
                     promises.push(relatedEntity.save(connection));
@@ -214,6 +381,11 @@ class Entity {
             }
         }
     }
+    /**
+     * Get object with changed virtual properties
+     * @param {{}} desc
+     * @returns {{}}
+     */
     getChangedVirtuals(desc) {
         const rtrn = {}, chp = this.__changedProps;
         for (let p in chp) {
@@ -223,6 +395,11 @@ class Entity {
         }
         return rtrn;
     }
+    /**
+     * Return object with hasMany virtual properties
+     * @param {{}} desc
+     * @returns {{}}
+     */
     getManyVirtuals(desc) {
         const rtrn = {}, props = this.__properties;
         let p;
@@ -234,10 +411,20 @@ class Entity {
         return rtrn;
     }
 }
+/**
+ * Entity domain - set when entity created
+ */
 Entity.domain = null;
+/**
+ * Entity description - set when entity created
+ */
 Entity._description = {
     id: new NumberType_1.NumberType().primary().autoIncrement()
 };
+/**
+ * Entity default data
+ * @private
+ */
 Entity.__defaultData = {};
 exports.Entity = Entity;
 //# sourceMappingURL=Entity.js.map

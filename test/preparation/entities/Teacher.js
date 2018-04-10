@@ -9,7 +9,13 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const Entity_1 = require("../../../src/Entity");
 const index_1 = require("../../../index");
 const domain_1 = require("../domain");
+/**
+ * Teacher entity
+ */
 let Teacher = class Teacher extends Entity_1.Entity {
+    /**
+     * Mapping
+     */
     static map(map) {
         const { Student } = require("./Student");
         map.id = index_1.type.number.primary().autoIncrement();

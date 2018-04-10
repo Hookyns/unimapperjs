@@ -1,11 +1,23 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const ExtendedType_1 = require("../ExtendedType");
+/**
+ * Number type class
+ * @class
+ */
 class NumberType extends ExtendedType_1.ExtendedType {
+    //<editor-fold desc="Ctor">
     constructor() {
         super(ExtendedType_1.ExtendedType.Types.Number);
-        this.description.length = 11;
+        // Number default length 11
+        this.description.length = 11; // => 4B - INTEGER
     }
+    //</editor-fold>
+    //<editor-fold desc="Public Properties">
+    /**
+     * Enable auto incrementing
+     * @returns {NumberType}
+     */
     autoIncrement() {
         if (this.description.decimals > 0) {
             throw new Error("Number type with decimals cannot be auto-incremented");
@@ -13,6 +25,11 @@ class NumberType extends ExtendedType_1.ExtendedType {
         this.description.autoIncrement = true;
         return this;
     }
+    /**
+     * Set number of decimals - precision
+     * @param {Number} decimals
+     * @returns {NumberType}
+     */
     decimals(decimals) {
         if (this.description.autoIncrement) {
             throw new Error("Auto-incrementing Number type cannot have decimals");

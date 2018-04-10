@@ -2,16 +2,42 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const Type_1 = require("../Type");
 const member_expression_1 = require("../member-expression");
+// noinspection JSUnusedGlobalSymbols
+/**
+ * Class for cpecifiing foreign virtual type
+ */
 class ForeignType extends Type_1.Type {
+    // noinspection JSUnusedGlobalSymbols
+    /**
+     * @param {string} entity Name of foreign Entity
+     */
     constructor(entity) {
         super(ForeignType.Types.Virtual);
         if (typeof entity !== "string") {
             throw new Error("Parameter 'entity' must be string name of foreign Entity.");
         }
+        /**
+         * Name of foreign entity
+         * @type {string}
+         */
         this.description.foreignEntity = entity;
+        /**
+         * Name of property which hold foreign key (id to given entity)
+         * @type {string}
+         */
         this.description.withForeign = null;
+        /**
+         * Name of property in foreign entity which refer to this entity's id
+         * @type {string}
+         */
         this.description.hasMany = null;
     }
+    /**
+     * Setup real field on which foreign will be created.
+     * It must be real existing field of type Number or Uuid.
+     * @param {string} field
+     * @returns {ForeignType}
+     */
     withForeign(field) {
         if (field.constructor === Function) {
             return this.withForeign(member_expression_1.memberExression(field));
@@ -25,6 +51,11 @@ class ForeignType extends Type_1.Type {
         this.description.withForeign = field;
         return this;
     }
+    /**
+     * Setup foreign field by which will be related entities found
+     * @param {string} foreignField
+     * @return {ForeignType}
+     */
     hasMany(foreignField) {
         if (foreignField.constructor === Function) {
             return this.hasMany(member_expression_1.memberExression(foreignField));

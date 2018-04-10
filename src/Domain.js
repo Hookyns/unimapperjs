@@ -8,10 +8,22 @@ const $path = require("path");
 const $fs = require("fs");
 const prettify = require("../node_modules/json-prettify/json2").stringify;
 const Types = Type_1.Type.Types;
+// Name of field holding entity identifier
 const ID_FIELD_NAME = "id";
+/**
+ *
+ * @param data
+ * @param tabs
+ */
 function toText(data, tabs) {
     return prettify(data, null, "\t").replace(/^/gm, tabs);
 }
+/**
+ * Return new object with all property names converted to lower case
+ * @param {Object} obj
+ * @param {boolean} [deep]
+ * @returns {Object}
+ */
 function allPropertiesToLowerCase(obj, deep = false) {
     if (!obj)
         return null;
@@ -27,23 +39,65 @@ function allPropertiesToLowerCase(obj, deep = false) {
     }
     return out;
 }
+// /**
+//  * List of all created Entities
+//  * @type {Array}
+//  */
+// const createdEntities: Array<typeof Entity> = [];
 class Domain {
+    //endregion
+    //region Ctor
+    /**
+     * @param {Function} adapter
+     * @param {String} connectionInfo
+     */
     constructor(adapter, connectionInfo) {
+        /**
+         * List of created Entities (their classes)
+         * @type {Function<Entity>[]}
+         * @private
+         */
         this.__createdEntities = [];
+        /**
+         * List of entities waiting for registration.
+         * @type {Function<Entity>[]}
+         * @private
+         */
         this.__waitingEntities = [];
+        // noinspection JSUnusedGlobalSymbols
+        /**
+         * Domain Symbol ID
+         * @protected
+         */
         this.__symbol = Symbol();
         this.__adapter = new adapter(connectionInfo);
         this.__connectionInfo = connectionInfo;
     }
+    //endregion
+    //<editor-fold desc="Static Methods">
+    //</editor-fold>
+    //<editor-fold desc="Public Methods">
+    /**
+     * Create new entity schema / domain model
+     * @param {String} name
+     * @param {Object<Type>} properties
+     * @param {Type} [idType]
+     * @param {Function} [_entityClass]
+     * @returns {Function}
+     */
     createEntity(name, properties, idType = undefined, _entityClass = undefined) {
         if (properties.constructor !== Object) {
             throw new Error("Parameter 'properties' is not Object.");
         }
+        // Create class from properties if _entityClass not passed
         if (!_entityClass) {
+            // Define ID
             if (!(ID_FIELD_NAME in properties)) {
                 if (!idType) {
                     idType = new NumberType_1.NumberType().primary().autoIncrement();
                 }
+                // Add id; assign used to create new object with id on first place,
+                // otherwise it'll be last column; just design detail
                 properties = Object.assign({
                     id: idType
                 }, properties);
@@ -55,19 +109,31 @@ class Domain {
             _entityClass = class extends Entity_1.Entity {
             };
         }
+        // Store default data
         _entityClass.__defaultData = this.getDefaultValues(properties);
+        // const entity = this.extendEntity(defaultData);
         this.addEntityClassInfo(_entityClass, name, properties);
         this.proxifyEntityProperties(properties, _entityClass);
         this.__createdEntities.push(_entityClass);
         this.removeFromWaiting(_entityClass);
         return _entityClass;
     }
+    /**
+     * Entity decorator registering entity
+     */
     entity() {
         return (target) => {
+            // Reflect.defineMetadata("domain.entity", target.name, target);
+            // Cuz this method is called right in entity's module, instance of entity is created
+            // before module is fully ready. Entity's method map() is called here too,
+            // but map() can contains requires to another entities which should have cycle dependencyies.
+            // It means that those dependencies cannot be resolved. So it's important to release context
+            // and let module finish.
             this.__waitingEntities.push(target);
             process.nextTick(() => {
+                // Get class fields
                 let inst = new target();
-                target.map(inst);
+                target.map(inst); // Map Types into fields
                 let properties = {};
                 let props = Object.getOwnPropertyNames(inst);
                 let prop;
@@ -88,33 +154,59 @@ class Domain {
             });
         };
     }
+    // noinspection JSUnusedGlobalSymbols
+    /**
+     * Create plain query, it shouldn't be supported by all adapters
+     * @param {String} query
+     * @param params
+     */
     async nativeQuery(query, ...params) {
         let q = this.__adapter.query;
         if (!q)
             return;
         return await q(query, params);
     }
+    // noinspection JSUnusedGlobalSymbols
+    /**
+     * Return entity by its name
+     * @param entityName
+     * @returns {*}
+     */
     getEntityByName(entityName) {
         for (let e of this.__createdEntities) {
             if (e.name === entityName && e.domain === this)
                 return e;
         }
+        // Try waiting ones
         for (let e of this.__waitingEntities) {
             if (e.name === entityName)
                 return e;
         }
         return null;
     }
+    // noinspection JSUnusedGlobalSymbols
+    /**
+     * Create migration script
+     * @param {String} path
+     */
     async createMigration(path) {
         await new Promise(r => setImmediate(r));
         const tables = await this.__adapter.getListOfEntities();
         const foreigns = {};
         let output = "";
         for (let entity of this.__createdEntities) {
+            // Entity description
             let fields = entity.getDescription();
+            // Create array with foreigns for entity
             foreigns[entity.name] = [];
             let fieldsLowerCase = allPropertiesToLowerCase(fields);
+            // let notReducedFields = entity.getDescription();
+            // let notReducedFieldsLowerCase = allPropertiesToLowerCase(notReducedFields);
+            // Remove properties with null & false, virtual foreign fields
+            // and properties default - default values are set from code
+            // foreign keys from entity are added to foreign
             Domain.prepareFields(entity, fields, foreigns);
+            // If entitiy not exists in database
             if (!tables.some(x => (x.toLowerCase() === entity.name.toLowerCase()))) {
                 output += `\t\tawait adapter.createEntity("${entity.name}", ${toText(fields, "\t\t").trim()});\n\n`;
             }
@@ -122,8 +214,8 @@ class Domain {
                 output = await this.updateEntity(entity, fields, fieldsLowerCase, output, foreigns);
             }
         }
-        output = this.removeEntities(tables, output);
-        output = Domain.addForeignKeys(foreigns, output);
+        output = this.removeEntities(tables, output); // Drop removed entities
+        output = Domain.addForeignKeys(foreigns, output); // Create foreign keys
         output = `
 /**
  * Migration script
@@ -134,6 +226,10 @@ module.exports = {\n\tup: async function up(adapter) {\n`
             + "\t}\n};";
         $fs.writeFileSync($path.join(path, (new Date().getTime()).toString() + ".migration.js"), output);
     }
+    /**
+     * Run latest migration from path
+     * @param {String} path
+     */
     async runMigration(path) {
         path = $path.resolve(path);
         const files = $fs.readdirSync(path).filter(name => /\.migration\.js$/.test(name)).sort();
@@ -141,41 +237,77 @@ module.exports = {\n\tup: async function up(adapter) {\n`
             return;
         const migration = $path.join(path, files[files.length - 1]);
         try {
+            // Run migration
             await require(migration).up(this.__adapter);
+            // Remove migration file from require cache
             delete require.cache[migration];
+            // Rename migration script - mark as applied
             $fs.renameSync(migration, migration.slice(0, -3) + ".applied");
         }
         catch (e) {
             console.error(e.stack);
         }
     }
+    // noinspection JSUnusedGlobalSymbols
+    /**
+     * Run migrations from more paths
+     * @param {Array<String>} paths
+     */
     async runMigrations(...paths) {
         for (let path of paths) {
             await this.runMigration(path);
         }
     }
+    /**
+     * Call dispose in adapter if needed
+     */
     async dispose() {
         if (this.__adapter.dispose)
             this.__adapter.dispose(this.__connectionInfo);
     }
+    //</editor-fold>
+    //<editor-fold desc="Private Methods>
+    /**
+     * Remove from list of waiting entities
+     * @param {typeof Entity} entity
+     */
     removeFromWaiting(entity) {
         let i = this.__waitingEntities.indexOf(entity);
         this.__waitingEntities = this.__waitingEntities.splice(i, 1);
     }
+    /**
+     * Remove removed entities
+     * @private
+     * @param tables
+     * @param {String} output
+     * @returns {String}
+     */
     removeEntities(tables, output) {
         for (let table of tables) {
+            // If there is no entity with given table name -> table should be removed
             if (!this.__createdEntities.some(e => (table.toLowerCase() === e.name.toLowerCase()))) {
                 output += `\t\tawait adapter.removeEntity("${table}");\n`;
             }
         }
         return output;
     }
+    /**
+     * Check for changes on existing entity
+     * @private
+     * @param entity
+     * @param fields
+     * @param fieldsLowerCase
+     * @param output
+     * @param foreigns
+     * @returns {Promise.<*>}
+     */
     async updateEntity(entity, fields, fieldsLowerCase, output, foreigns) {
         let tableInfo = await this.__adapter.getEntityStructure(entity.name);
         let tableInfoLowerCase = allPropertiesToLowerCase(tableInfo);
         for (let fieldName in fields) {
             if (fields.hasOwnProperty(fieldName)) {
                 let fieldNameLowerCase = fieldName.toLowerCase();
+                // New field
                 if (!(fieldNameLowerCase in tableInfoLowerCase)) {
                     output += `\t\tawait adapter.addField("${entity.name}", "${fieldName}", ${toText(fields[fieldName], "\t\t").slice(2)});\n`;
                 }
@@ -184,17 +316,31 @@ module.exports = {\n\tup: async function up(adapter) {\n`
                 }
             }
         }
+        // Check for keys deletation
         output = Domain.removeForeignKey(tableInfo, foreigns, entity, output);
+        // remove foreign keys from variable foreign which has been already created
         Domain.filterForeignKeys(tableInfo, foreigns, entity);
+        // Check for field deletion
         output = Domain.removeField(tableInfoLowerCase, fieldsLowerCase, tableInfo, output, entity);
         return output;
     }
+    /**
+     * Check for changes on given entity field
+     * @private
+     * @param fieldsLowerCase
+     * @param fieldNameLowerCase
+     * @param entity
+     * @param tableInfoLowerCase
+     * @param output
+     * @returns {*}
+     */
     static updateEntityField(fieldsLowerCase, fieldNameLowerCase, entity, tableInfoLowerCase, output) {
         let changed = false;
         let entityTypeFields = fieldsLowerCase[fieldNameLowerCase];
         let tableInfoTypeFields = tableInfoLowerCase[fieldNameLowerCase];
+        // Check if something differ
         for (let typeFieldName in entityTypeFields) {
-            if (entityTypeFields.hasOwnProperty(typeFieldName)) {
+            if (entityTypeFields.hasOwnProperty(typeFieldName) /* && typeFieldName !== "default"*/) {
                 if (entityTypeFields.type === Types.Boolean && typeFieldName === "length") {
                     continue;
                 }
@@ -209,6 +355,16 @@ module.exports = {\n\tup: async function up(adapter) {\n`
         }
         return output;
     }
+    /**
+     * Remove removed fields
+     * @private
+     * @param tableInfoLowerCase
+     * @param notReducedFieldsLowerCase
+     * @param tableInfo
+     * @param output
+     * @param entity
+     * @returns {*}
+     */
     static removeField(tableInfoLowerCase, notReducedFieldsLowerCase, tableInfo, output, entity) {
         for (let tf in tableInfoLowerCase) {
             if (tableInfoLowerCase.hasOwnProperty(tf) && !notReducedFieldsLowerCase.hasOwnProperty(tf)) {
@@ -218,6 +374,13 @@ module.exports = {\n\tup: async function up(adapter) {\n`
         }
         return output;
     }
+    /**
+     * Add new foreign keys
+     * @private
+     * @param foreigns
+     * @param {String} output
+     * @returns {String}
+     */
     static addForeignKeys(foreigns, output) {
         let fks, fk;
         for (let entityName in foreigns) {
@@ -230,6 +393,15 @@ module.exports = {\n\tup: async function up(adapter) {\n`
         }
         return output;
     }
+    /**
+     * Remove removed foreign keys
+     * @private
+     * @param tableInfo
+     * @param foreigns
+     * @param entity
+     * @param output
+     * @returns {*}
+     */
     static removeForeignKey(tableInfo, foreigns, entity, output) {
         for (let fieldName in tableInfo) {
             if (tableInfo.hasOwnProperty(fieldName)) {
@@ -243,6 +415,12 @@ module.exports = {\n\tup: async function up(adapter) {\n`
         }
         return output;
     }
+    /**
+     * remove foreign keys from variable foreign which has been already created
+     * @param tableInfo
+     * @param foreigns
+     * @param entity
+     */
     static filterForeignKeys(tableInfo, foreigns, entity) {
         const allForeigns = foreigns[entity.name];
         const shouldBeAdded = [];
@@ -253,11 +431,20 @@ module.exports = {\n\tup: async function up(adapter) {\n`
         }
         foreigns[entity.name] = shouldBeAdded;
     }
+    /**
+     * Remove default data, unwanted fields and find foreign keys
+     * @private
+     * @param entity
+     * @param fields
+     * @param foreigns
+     * @returns {*}
+     */
     static prepareFields(entity, fields, foreigns) {
         let tmpFieldType;
         for (let field in fields) {
             if (fields.hasOwnProperty(field)) {
                 tmpFieldType = fields[field];
+                // Find foreigns, store them in extra list and delete it from fields
                 if (tmpFieldType.type == Types.Virtual) {
                     if (tmpFieldType.hasMany === null) {
                         tmpFieldType.keyName = `fk_${entity.name}_${tmpFieldType.withForeign}_${tmpFieldType.foreignEntity}_id`;
@@ -266,10 +453,12 @@ module.exports = {\n\tup: async function up(adapter) {\n`
                     delete fields[field];
                     continue;
                 }
+                // Delete non-real field properties
                 delete tmpFieldType["default"];
                 delete tmpFieldType["foreignEntity"];
                 delete tmpFieldType["hasMany"];
                 delete tmpFieldType["withForeign"];
+                // Delete field properties which has default values (null and false)
                 for (let fieldTypePropety in tmpFieldType) {
                     if (tmpFieldType.hasOwnProperty(fieldTypePropety)) {
                         if (tmpFieldType[fieldTypePropety] === null || tmpFieldType[fieldTypePropety] === false) {
@@ -280,8 +469,17 @@ module.exports = {\n\tup: async function up(adapter) {\n`
             }
         }
     }
+    /**
+     * Add extra properties to Entity
+     * @private
+     * @param entity
+     * @param name
+     * @param properties
+     */
     addEntityClassInfo(entity, name, properties) {
+        // Change name of class
         Object.defineProperty(entity, "name", { value: name });
+        // Store entity description
         Object.defineProperty(entity, "_description", {
             get: function () {
                 return Object.assign({}, properties);
@@ -289,6 +487,12 @@ module.exports = {\n\tup: async function up(adapter) {\n`
         });
         entity.domain = this;
     }
+    /**
+     * Create proxy over properties which will detect changes
+     * @private
+     * @param properties
+     * @param entity
+     */
     proxifyEntityProperties(properties, entity) {
         for (let propName in properties) {
             if (properties.hasOwnProperty(propName)) {
@@ -306,6 +510,7 @@ module.exports = {\n\tup: async function up(adapter) {\n`
                     get: function () {
                         const chps = this.__changedProps;
                         const props = this.__properties;
+                        // noinspection JSAccessibilityCheck
                         let val = chps[propName] || props[propName];
                         if (val == undefined && isVirt) {
                             val = new Promise((resolve, reject) => {
@@ -313,6 +518,7 @@ module.exports = {\n\tup: async function up(adapter) {\n`
                                     try {
                                         let val;
                                         if (fkField) {
+                                            // Foreign Id can be null if it's optional relation
                                             let id = chps[fkField] || props[fkField];
                                             if (id) {
                                                 val = await fEtity.getById(id);
@@ -320,9 +526,11 @@ module.exports = {\n\tup: async function up(adapter) {\n`
                                             else {
                                                 val = null;
                                             }
+                                            // Store foreign
                                             props[desc.withForeign] = val;
                                         }
                                         else if (hasMany) {
+                                            // TODO: Finish 1:M relation
                                             if (props.id > 0) {
                                                 val = await fEtity.getAll()
                                                     .where(x => x.$ == $, hasMany, props.id)
@@ -351,6 +559,7 @@ module.exports = {\n\tup: async function up(adapter) {\n`
                                 }
                             }
                         }
+                        // Mark change
                         this.__isDirty = this.__changedProps[propName] != value;
                         this.__changedProps[propName] = value;
                     }
@@ -358,13 +567,19 @@ module.exports = {\n\tup: async function up(adapter) {\n`
             }
         }
     }
+    /**
+     * Return object with default property values
+     * @private
+     * @param properties
+     * @returns {{}}
+     */
     getDefaultValues(properties) {
         const defaultData = {};
         for (let prop in properties) {
             if (properties.hasOwnProperty(prop)) {
                 let propertyDesc = properties[prop].description;
                 if (propertyDesc.type == Type_1.Type.Types.Virtual)
-                    continue;
+                    continue; // Ignore virtual types
                 let defVal = propertyDesc.default;
                 let defValFunc;
                 if (typeof defVal !== "function") {

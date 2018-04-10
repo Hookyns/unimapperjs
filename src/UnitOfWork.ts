@@ -1,7 +1,6 @@
 "use strict";
 
 import {Entity} from "./Entity";
-import {Domain} from "./Domain";
 
 export class UnitOfWork
 {
@@ -150,11 +149,6 @@ export class UnitOfWork
 	{
 		this.snapEntity(entity, true);
 		if (!(<any>entity).__isNew) console.warn("Entity is not marked as NEW but nsert is requested", entity);
-		// this.__insert.push(entity);
-		// const domain = (<typeof Entity>entity.constructor).domain;
-		// await this.createTransaction(domain); // Create transaction if not started in given domain yet
-		// const conn = this.getConnection(domain);
-		// await (<typeof Entity>entity.constructor).insert(entity, conn);
 	}
 
 	// noinspection JSUnusedGlobalSymbols
@@ -166,11 +160,6 @@ export class UnitOfWork
 	{
 		this.snapEntity(entity, true);
 		if (!(<any>entity).__isDirty) console.warn("Entity is not marked as NEW but nsert is requested", entity);
-		// this.__update.push(entity);
-		// const domain = (<typeof Entity>entity.constructor).domain;
-		// await this.createTransaction(domain); // Create transaction if not started in given domain yet
-		// const conn = this.getConnection(domain);
-		// await entity.save(conn);
 	}
 
 	// noinspection JSUnusedGlobalSymbols
@@ -182,12 +171,6 @@ export class UnitOfWork
 	{
 		this.touchEntity(entity);
 		(<any>entity).__isRemoved = true;
-		// this.__removed.push(entity);
-		// const entCtrl: typeof Entity = <any>entity.constructor;
-		// const domain = entCtrl.domain;
-		// await this.createTransaction(domain); // Create transaction if not started in given domain yet
-		// const conn = this.getConnection(domain);
-		// await entCtrl.remove(entity, conn);
 	}
 
 	// noinspection JSUnusedGlobalSymbols
@@ -284,6 +267,17 @@ export class UnitOfWork
 	 */
 	private async commitChanges()
 	{
+		// If this is nested UoW, move changes up
+		if (this.__parentUnit)
+		{
+			// Concat touched entities
+			this.__parentUnit.__touchedEntitiesMap = Object.assign(
+				this.__parentUnit.__touchedEntitiesMap,
+				this.__touchedEntitiesMap
+			);
+			return;
+		}
+
 		const domains = {};
 		let touched = this.__touchedEntitiesMap;
 

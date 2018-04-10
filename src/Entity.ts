@@ -302,13 +302,6 @@ export abstract class Entity<TEntity extends Entity<any>>
 	static reconstructFrom(data: any): Entity<any>
 	{
 		let entity: Entity<any> = new (<any>this.constructor)(data, false);
-
-		// for (let field in data) {
-		//     if (data.hasOwnProperty(field)) {
-		//         entity[field] = data[field];
-		//     }
-		// }
-
 		return entity;
 	}
 
@@ -355,6 +348,7 @@ export abstract class Entity<TEntity extends Entity<any>>
 		return changedData;
 	}
 
+	// noinspection JSUnusedGlobalSymbols
 	/**
 	 * Return new object with selected properties
 	 * @param {Array<String>} fields List of property names
@@ -412,6 +406,15 @@ export abstract class Entity<TEntity extends Entity<any>>
 
 	// noinspection JSUnusedGlobalSymbols
 	/**
+	 * Remove changes on this entity instance
+	 */
+	rollbackChanges() {
+		this.__changedProps = {};
+		this.__isDirty = false;
+	}
+
+	// noinspection JSUnusedGlobalSymbols
+	/**
 	 * Map data from given Object into current entity instance.
 	 * Data will me marked as changed if differ from existing values.
 	 * @param {Object} data
@@ -429,8 +432,6 @@ export abstract class Entity<TEntity extends Entity<any>>
 					this.__changedProps[field] = data[field];
 					this.__isDirty = true;
 				}
-
-				// this[field] = data[field];
 			}
 		}
 
@@ -467,7 +468,7 @@ export abstract class Entity<TEntity extends Entity<any>>
 			}
 		}
 
-		this.__changedProps = {};
+		this.rollbackChanges();
 	}
 
 	/**

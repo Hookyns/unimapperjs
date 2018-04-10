@@ -20,13 +20,6 @@ export class Query<TEntity extends Entity<any>> {
      */
     private entity: typeof Entity;
 
-    // /**
-    //  * List of JS arrow functions for last JS filtering
-    //  * @type {Array<Function>}
-    //  * @private
-    //  */
-    // private filters: Array<Function> = [];
-
     /**
      * List of filter arguments
      * @type {Array}
@@ -101,11 +94,6 @@ export class Query<TEntity extends Entity<any>> {
 
         const fetch = await (<any>this.entity.domain).__adapter.select(this.entity, this.selectFields,
 	        conditions, this.orders, this.limitValue, this.skipValue);
-
-        // for (let filter of this.filters) {
-        // 	// console.log(filter.toString());
-        // 	fetch = fetch.filter(filter(this.whereArgs));
-        // }
 
         // It's COUNT
         if (this.selectFields && this.selectFields.length === 1 && this.selectFields[0].func === "count") {
