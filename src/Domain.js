@@ -6,7 +6,7 @@ const NumberType_1 = require("./types/NumberType");
 const UuidType_1 = require("./types/UuidType");
 const $path = require("path");
 const $fs = require("fs");
-const prettify = require("../node_modules/json-prettify/json2").stringify;
+const prettify = require("json-prettify/json2").stringify;
 const Types = Type_1.Type.Types;
 // Name of field holding entity identifier
 const ID_FIELD_NAME = "id";

@@ -1,13 +1,12 @@
 import {Entity} from "./Entity";
 import {ITypeDescription, Type} from "./Type"
 import {NumberType} from "./types/NumberType";
-import {BaseType} from "./BaseType";
 import {UuidType} from "./types/UuidType";
 import {IAdapter, IAdapterStatic, IMigrationableAdapter} from "./IAdapter";
 
 const $path = require("path");
 const $fs = require("fs");
-const prettify = require("../node_modules/json-prettify/json2").stringify;
+const prettify = require("json-prettify/json2").stringify;
 
 const Types = Type.Types;
 
