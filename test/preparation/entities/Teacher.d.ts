@@ -19,7 +19,7 @@ export declare class Teacher extends Entity<Teacher> {
     /**
      * Navigations property to assigned students
      */
-    students: Array<Student>;
+    students: Promise<Array<Student>>;
     /**
      * Mapping
      */

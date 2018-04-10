@@ -16,6 +16,6 @@ export declare class Student extends Entity<Student> {
     /**
      * Navigation property to Teacher
      */
-    teacher: Teacher;
+    teacher: Promise<Teacher>;
     static map(map: Student): void;
 }
