@@ -110,7 +110,7 @@ const {type} = require("unimapperjs");
 const {Entity} = require("unimapperjs/src/Entity");
 const {domain} = require("./domain");
 
-const Teacher = class Teacher extends Entity {
+class Teacher extends Entity {
     constructor() {
         super();
 	    /**
