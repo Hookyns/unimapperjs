@@ -28,6 +28,8 @@ See [wiki](https://github.com/Hookyns/unimapperjs/wiki)
 
 ## Example
 
+You can clone and play with the example in [this](https://github.com/Hookyns/unimapperjs-example) repo.
+
 ### Directory structure of this example
 - **entities**
 - **migrations**
