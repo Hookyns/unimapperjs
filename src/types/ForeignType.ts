@@ -1,5 +1,5 @@
 import {Type} from "../Type";
-import {memberExression} from "../member-expression";
+import {memberExpression} from "../member-expression";
 
 // noinspection JSUnusedGlobalSymbols
 /**
@@ -44,7 +44,7 @@ export class ForeignType extends Type<ForeignType> {
      */
     withForeign<TEntity>(field: ((map: TEntity) => any) | string): ForeignType {
         if (field.constructor === Function) {
-            return this.withForeign(memberExression(field));
+            return this.withForeign(memberExpression(field));
         }
 
         if (this.description.hasMany) {
@@ -67,7 +67,7 @@ export class ForeignType extends Type<ForeignType> {
      */
     hasMany<TEntity>(foreignField: ((map: TEntity) => any) | string): ForeignType {
         if (foreignField.constructor === Function) {
-            return this.hasMany(memberExression(foreignField));
+            return this.hasMany(memberExpression(foreignField));
         }
 
         if (this.description.withForeign) {

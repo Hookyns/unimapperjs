@@ -141,7 +141,10 @@ function describeExpressionParts(parts, exprPartRegExp) {
                     func = "!=";
                 }
                 arg = match[2] || match[4];
-                if (arg && arg.charAt(0) == arg.charAt(arg.length - 1) && (arg.charAt(0) == "'" || arg.charAt(0) == '"')) {
+                if (arg == "true" || arg == "false") {
+                    arg = arg == "true";
+                }
+                else if (arg && arg.charAt(0) == arg.charAt(arg.length - 1) && (arg.charAt(0) == "'" || arg.charAt(0) == '"')) {
                     arg = arg.slice(1, -1);
                 }
                 desc = {
@@ -206,7 +209,7 @@ function getEntityRegExps(entityName) {
         REGEX_CACHE[entityName] = REGEXPS = {
             MATCH_ENTITY_REGEXP: new RegExp("(^|[^\\w\\d])" + entityName + "[ \\.\\)]"),
             OPERATORS_REGEX: new RegExp("(?:^|[^\\w\\d])" + entityName
-                + "\\.((?:\\.?[\\w\\d_\\$]+)+)(?:\\((.*?)\\))?(?:\\s(>|<|(?:==)|(?:!=)|(?:===)|(?:!==)|(?:<=)|(?:>=)|(?:in))\\s(.*))?")
+                + "\\.((?:\\.?[\\w\\d_\\$]+)+)(?:\\((.*?)\\))?(?:\\s*(>|<|(?:===)|(?:!==)|(?:==)|(?:!=)|(?:<=)|(?:>=)|(?:in))\\s*(.*))?")
         };
     }
     return REGEXPS;

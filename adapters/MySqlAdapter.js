@@ -124,6 +124,13 @@ const whereBuildActions = {
 	"exists": (field) => escapeIdSqlString(field) + " IS NOT NULL",
 };
 
+function convertBooleanArg(arg) {
+	if (arg === true || arg === false) {
+		return ~~arg;
+	}
+	return arg;
+}
+
 /**
  * Create SQL WHERE condition
  * @param {Array} conditions
@@ -138,7 +145,7 @@ function buildWhereCondition(conditions) {
 		if (cond.constructor === Object) {
 			let action = whereBuildActions[cond.func];
 			if (!action) throw new Error(`Unsupported function operator '${cond.func}' found in query`);
-			query += action(cond.field, cond.arg);
+			query += action(cond.field, convertBooleanArg(cond.arg));
 		} else if (cond.constructor === Array) {
 			query += "(" + buildWhereCondition(cond) + ")";
 		} else if (cond.constructor === String) {

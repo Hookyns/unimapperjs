@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const WhereExpression_1 = require("./WhereExpression");
 const expression_1 = require("./expression");
+const member_expression_1 = require("./member-expression");
 /**
  * @class
  */
@@ -9,12 +10,6 @@ class Query {
     //endregion
     //region Ctor
     constructor(entity) {
-        /**
-         * List of filter arguments
-         * @type {Array}
-         * @private
-         */
-        this.whereArgs = [];
         /**
          * List of fields which shoud be selected
          * Default null -> all fields
@@ -32,11 +27,6 @@ class Query {
          * @private
          */
         this.skipValue = null;
-        /**
-         * @type {Array}
-         * @private
-         */
-        this.conditions = [];
         /**
          * @type {Array}
          * @private
@@ -75,6 +65,7 @@ class Query {
     }
     /**
      * Say what you want to return
+     * @alias map
      * @param expression
      */
     select(expression) {
@@ -84,18 +75,37 @@ class Query {
         return this;
     }
     /**
-     * Create WHERE condition in query
+     * Say what you want to return
+     * @alias select
      * @param expression
+     */
+    map(expression) {
+        return this.select(expression);
+    }
+    /**
+     * Create WHERE condition in query
+     * @alias filter
+     * @param {(entity: TEntity) => boolean} expression
      * @param args
      */
     where(expression, ...args) {
         this.whereExpression.addExpression(expression, ...args);
         return this;
     }
+    /**
+     * Create WHERE condition in query
+     * @alias where
+     * @param {(entity: TEntity) => boolean} expression
+     * @param args
+     */
+    filter(expression, ...args) {
+        return this.where(expression, ...args);
+    }
     // noinspection JSUnusedGlobalSymbols
     /**
      * Apply where only if condition is true
-     * @param expression
+     * @alias filterIf
+     * @param {(entity: TEntity) => boolean} expression
      * @param condition
      * @param args
      */
@@ -107,12 +117,23 @@ class Query {
     }
     // noinspection JSUnusedGlobalSymbols
     /**
+     * Apply where only if condition is true
+     * @alias whereIf
+     * @param {(entity: TEntity) => boolean} expression
+     * @param condition
+     * @param args
+     */
+    filterIf(expression, condition, ...args) {
+        return this.whereIf(expression, condition, ...args);
+    }
+    // noinspection JSUnusedGlobalSymbols
+    /**
      * Limit select to given number of records
      * @param limit
      */
     limit(limit) {
         limit = ~~limit;
-        if (!limit) {
+        if (limit <= 0) {
             throw new Error("Invalid limit value");
         }
         this.limitValue = limit;
@@ -125,29 +146,62 @@ class Query {
      */
     skip(skip) {
         skip = ~~skip;
-        if (!skip && skip !== 0) {
-            throw new Error("Invalid skip value");
+        if (skip < 0) {
+            throw new Error("Negative values are not allowed.");
         }
-        this.skipValue = skip;
+        this.skipValue = skip === 0 ? null : skip;
+        return this;
+    }
+    // noinspection JSUnusedGlobalSymbols
+    /**
+     * Slice data collection by given range
+     * @param {number} from
+     * @param {number} to
+     */
+    slice(from, to = null) {
+        if (from) {
+            this.skip(from);
+        }
+        if (to) {
+            this.limit(to - from);
+        }
         return this;
     }
     // noinspection JSUnusedGlobalSymbols
     /**
      * Add ASC ordering by given field
-     * @param fieldName
+     * @alias sort
+     * @param {(entity: TEntity) => any} fieldExpression
      */
-    orderBy(fieldName) {
-        this.orders.push({ field: fieldName, order: "asc" });
+    orderBy(fieldExpression) {
+        this.orders.push({ field: member_expression_1.memberExpression(fieldExpression), order: "asc" });
         return this;
     }
     // noinspection JSUnusedGlobalSymbols
     /**
      * Add ASC ordering by given field
-     * @param fieldName
+     * @param {(entity: TEntity) => any} fieldExpression
      */
-    orderByDescending(fieldName) {
-        this.orders.push({ field: fieldName, order: "desc" });
+    sort(fieldExpression) {
+        return this.orderBy(fieldExpression);
+    }
+    // noinspection JSUnusedGlobalSymbols
+    /**
+     * Add DESC ordering by given field
+     * @alias sortDesc
+     * @param {(entity: TEntity) => any} fieldExpression
+     */
+    orderByDescending(fieldExpression) {
+        this.orders.push({ field: member_expression_1.memberExpression(fieldExpression), order: "desc" });
         return this;
+    }
+    // noinspection JSUnusedGlobalSymbols
+    /**
+     * Add DESC ordering by given field
+     * @param {(entity: TEntity) => any} fieldExpression
+     */
+    sortDesc(fieldExpression) {
+        return this.orderByDescending(fieldExpression);
     }
 }
 //region Fields

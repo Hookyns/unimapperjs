@@ -125,7 +125,7 @@ class Entity {
         await this.domain.__adapter.remove(this, {
             field: "id",
             func: "=",
-            args: entity.__properties[ID_FIELD_NAME]
+            arg: entity.__properties[ID_FIELD_NAME]
         }, connection);
         entity.__isRemoved = true;
     }

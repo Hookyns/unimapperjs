@@ -12,12 +12,6 @@ export declare class Query<TEntity extends Entity<any>> {
      */
     private entity;
     /**
-     * List of filter arguments
-     * @type {Array}
-     * @private
-     */
-    private whereArgs;
-    /**
      * List of fields which shoud be selected
      * Default null -> all fields
      * @type {Array}
@@ -44,11 +38,6 @@ export declare class Query<TEntity extends Entity<any>> {
      * @type {Array}
      * @private
      */
-    private conditions;
-    /**
-     * @type {Array}
-     * @private
-     */
     private orders;
     /**
      * Where expression builder
@@ -66,22 +55,46 @@ export declare class Query<TEntity extends Entity<any>> {
     count(): Query<TEntity>;
     /**
      * Say what you want to return
+     * @alias map
      * @param expression
      */
     select(expression: (entity: TEntity) => any): Query<TEntity>;
     /**
-     * Create WHERE condition in query
+     * Say what you want to return
+     * @alias select
      * @param expression
+     */
+    map(expression: (entity: TEntity) => any): Query<TEntity>;
+    /**
+     * Create WHERE condition in query
+     * @alias filter
+     * @param {(entity: TEntity) => boolean} expression
      * @param args
      */
     where(expression: (entity: TEntity) => boolean, ...args: any[]): Query<TEntity>;
     /**
+     * Create WHERE condition in query
+     * @alias where
+     * @param {(entity: TEntity) => boolean} expression
+     * @param args
+     */
+    filter(expression: (entity: TEntity) => boolean, ...args: any[]): Query<TEntity>;
+    /**
      * Apply where only if condition is true
-     * @param expression
+     * @alias filterIf
+     * @param {(entity: TEntity) => boolean} expression
      * @param condition
      * @param args
      */
     whereIf(expression: (entity: TEntity) => boolean, condition: boolean, ...args: any[]): Query<TEntity>;
+    /**
+     * Apply where only if condition is true
+     * @alias whereIf
+     * @param {(entity: TEntity) => boolean} expression
+     * @param condition
+     * @param args
+     */
+    filterIf(expression: (entity: TEntity) => boolean, condition: boolean, ...args: any[]): Query<TEntity>;
     /**
      * Limit select to given number of records
      * @param limit
@@ -93,13 +106,31 @@ export declare class Query<TEntity extends Entity<any>> {
      */
     skip(skip: number): Query<TEntity>;
     /**
-     * Add ASC ordering by given field
-     * @param fieldName
+     * Slice data collection by given range
+     * @param {number} from
+     * @param {number} to
      */
-    orderBy(fieldName: string): Query<TEntity>;
+    slice(from: number, to?: number): Query<TEntity>;
     /**
      * Add ASC ordering by given field
-     * @param fieldName
+     * @alias sort
+     * @param {(entity: TEntity) => any} fieldExpression
      */
-    orderByDescending(fieldName: any): Query<TEntity>;
+    orderBy(fieldExpression: (entity: TEntity) => any): Query<TEntity>;
+    /**
+     * Add ASC ordering by given field
+     * @param {(entity: TEntity) => any} fieldExpression
+     */
+    sort(fieldExpression: (entity: TEntity) => any): Query<TEntity>;
+    /**
+     * Add DESC ordering by given field
+     * @alias sortDesc
+     * @param {(entity: TEntity) => any} fieldExpression
+     */
+    orderByDescending(fieldExpression: (entity: TEntity) => any): Query<TEntity>;
+    /**
+     * Add DESC ordering by given field
+     * @param {(entity: TEntity) => any} fieldExpression
+     */
+    sortDesc(fieldExpression: (entity: TEntity) => any): Query<TEntity>;
 }

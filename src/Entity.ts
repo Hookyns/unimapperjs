@@ -208,7 +208,7 @@ export abstract class Entity<TEntity extends Entity<any>>
 		await (<any>this.domain).__adapter.remove(this, {
 			field: "id",
 			func: "=",
-			args: entity.__properties[ID_FIELD_NAME]
+			arg: entity.__properties[ID_FIELD_NAME]
 		}, connection);
 		entity.__isRemoved = true;
 	}

@@ -40,7 +40,7 @@ class ForeignType extends Type_1.Type {
      */
     withForeign(field) {
         if (field.constructor === Function) {
-            return this.withForeign(member_expression_1.memberExression(field));
+            return this.withForeign(member_expression_1.memberExpression(field));
         }
         if (this.description.hasMany) {
             throw new Error("withForeign() cannot be used with hasMany()");
@@ -58,7 +58,7 @@ class ForeignType extends Type_1.Type {
      */
     hasMany(foreignField) {
         if (foreignField.constructor === Function) {
-            return this.hasMany(member_expression_1.memberExression(foreignField));
+            return this.hasMany(member_expression_1.memberExpression(foreignField));
         }
         if (this.description.withForeign) {
             throw new Error("hasMany cannot be used with withForeign()");
