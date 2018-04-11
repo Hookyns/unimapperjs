@@ -27,14 +27,19 @@ See [wiki](https://github.com/Hookyns/unimapperjs/wiki)
 - implement nested operations (eg. saving Enterprise should save all Employees in Enterprise.Employees collection too. Same rollbacking etc.)
 
 ## Example
-Taken from tests.
 
-First you must create domain. 
+### Directory structure of this example
+- **entities**
+- **migrations**
+- domain.js
+- create-migration.js
+- run-migration.js
+
+### Create domain
 > domain.js
 ```javascript
 const $um = require("unimapperjs");
 const MySqlAdapter = require("unimapperjs/adapters/MySqlAdapter");
-const type = $um.type;
 
 // Domain creation - connect to database via MySQL adapter
 const domain = $um.createDomain(MySqlAdapter, { // connection string or object with options - specific to adapter
@@ -43,29 +48,17 @@ const domain = $um.createDomain(MySqlAdapter, { // connection string or object w
     password: 'test',
     database: "test"
 });
+exports.domain = domain;
 ```
 
+### Create entities
 Then create entities in given domain.
-> Subject.js
-```javascript
-const {type} = require("unimapperjs");
-const {domain} = require("./domain");
-
-const Subject = domain.createEntity("Subject", {
-    name: type.string.length(100),
-    active: type.boolean
-});
-
-module.exports.Subject = Subject;
-```
-It's simple basic method of entity declaration via domain.createEntity().
-
 In TypeScript you can declare entity like this one.
-> Student.ts
+> etities/Student.ts
 ```typescript
 import {type} from "unimapperjs";
 import {Entity} from "unimapperjs/src/Entity";
-import {domain} from "./domain";
+import {domain} from "../domain";
 import {Teacher} from "./Teacher";
 
 @domain.entity()
@@ -89,7 +82,7 @@ export class Student extends Entity<Student>
     /**
      * Navigation property to Teacher
      */
-    teacher: Teacher;
+    teacher: Promise<Teacher>;
 
     static map(map: Student) {
         const {Teacher} = require("./Teacher");
@@ -103,84 +96,190 @@ export class Student extends Entity<Student>
 }
 ```
 
-Or same class-like style but with just JS.
-> Teacher.js
+> entities/Teacher.ts
+```typescript
+import {type} from "unimapperjs";
+import {Entity} from "unimapperjs/src/Entity";
+import {domain} from "../domain";
+import {Student} from "./Student";
+
+/**
+ * Teacher entity
+ */
+@domain.entity()
+export class Teacher extends Entity<Teacher>
+{
+    /**
+     * Teacher ID
+     */
+    id: number;
+
+    /**
+     * First name
+     */
+    firstName: string;
+
+    /**
+     * Last name
+     */
+    lastName: string;
+
+    /**
+     * Navigations property to assigned students
+     */
+    students: Promise<Array<Student>>;
+
+    /**
+     * Mapping
+     */
+    static map(map: Teacher) {
+        const {Student} = require("./Student");
+
+        map.id = <any>type.number.primary().autoIncrement();
+        map.firstName = <any>type.string.length(50);
+        map.lastName = <any>type.string.length(50);
+        map.students = <any>type.foreign(Student.name)
+            .hasMany<Student>(s => s.teacherId);
+    }
+}
+```
+
+### Migrate
+Now you can run migraion.
+
+> create-migration.js
 ```javascript
-const {type} = require("unimapperjs");
-const {Entity} = require("unimapperjs/src/Entity");
+const $umjs = require("unimapperjs");
+const $path = require("path");
 const {domain} = require("./domain");
 
-class Teacher extends Entity {
-    constructor() {
-        super();
-	    /**
-         * Teacher Id
-	     * @type {number}
-	     */
-	    this.id = null;
+// Discove all entities from given path
+$umjs.initEntitiesFrom($path.resolve(__dirname, "entities"));
 
-	    /**
-         * Teacher first name
-	     * @type {string}
-	     */
-	    this.firstName = null;
-
-	    /**
-         * Teacher last name
-	     * @type {string}
-	     */
-	    this.lastName = null;
-
-	    /**
-         * Teacher's students - navigation property
-	     * @type {Promise<Array<Student>>}
-	     */
-	    this.students = null;
-    }
-
-    static map(map) {
-        const { Student } = require("./Student");
-        map.id = type.number.primary().autoIncrement();
-        map.firstName = type.string.length(50);
-        map.lastName = type.string.length(50);
-        map.students = type.foreign(Student.name)
-            .hasMany(s => s.teacherId);
-    }
-};
-
-// Register entity with TS decorator function manually
-domain.entity()(Teacher);
-
-// export
-module.exports.Teacher = Teacher;
+// Run it in next event loop iteration
+setImmediate(async () => {
+	await domain.createMigration($path.resolve(__dirname, "migrations"));
+	await domain.dispose();
+});
 ```
 
-In JS class-like declaration style you can omit constructor declaration, 
-only map() method is important, but if you do so, you'll lose IDE completions.
-
-##### Why is map() important?
-Teacher navigate to Student and Student navigate to Teacher. 
-There is cycle dependency which must be resolved. Method map() is async,
-it init map() method and rest of work is in process.nextTick, giving chance to node
-to resolve modules.
-
-Because of that async behavior, you should not work with entities in same event-loop
-iteration in which you declare your entities. 
-
-See this example.
-> example.js
+New migration script is gonna be generated in folder `./migrations` like this one.
 ```javascript
-const {Student} = require("./Student");
+/**
+ * Migration script
+ */
 
-// Create new Student
-let newStudent = new Student();
-newStudent.name = "John Smith";
+module.exports = {
+	up: async function up(adapter) {
+		await adapter.createEntity("Student", {
+			  "id": {
+				  "type": "String"
+				, "length": 37
+				, "primary": true
+			}
+			, "name": {
+				  "type": "String"
+				, "length": 100
+			}
+			, "teacherId": {
+				  "type": "Number"
+				, "length": 11
+			}
+		});
 
-Student.insert(newStudent);
+		await adapter.createEntity("Teacher", {
+			  "id": {
+				  "type": "Number"
+				, "length": 11
+				, "primary": true
+				, "autoIncrement": true
+			}
+			, "firstName": {
+				  "type": "String"
+				, "length": 50
+			}
+			, "lastName": {
+				  "type": "String"
+				, "length": 50
+			}
+		});
+
+		await adapter.addForeignKey("Student", "teacherId", "Teacher", "fk_Student_teacherId_Teacher_id");
+	}
+};
 ```
 
-If this is first time when Student is required, class Student in declared 
-and domain.entity()(Student) will be called. But how I've said before, it is async
-and it's going to be finished in process.nextTick(). You can use setImmediate() for example, 
-if you run some simple scripts, which has no async behavior, like this.
-But in most cases, after require() you wait eg. for connection, so it will not be necessary.
+You can run that migration scrpt with
+> run-migration.js
+```javascript
+const $path = require("path");
+const {domain} = require("./domain");
+
+setImmediate(async () => {
+	await domain.runMigration($path.resolve(__dirname, "migrations"));
+	await domain.dispose();
+});
+```
+
+### Insert some data
+```javascript
+let teacher = new Teacher({
+	firstName: "John",
+	lastName: "Wick"
+});
+await Teacher.insert(teacher);
+
+let teacher2 = new Teacher();
+teacher2.firstName = "John";
+teacher2.lastName = "Smith";
+await Teacher.insert(teacher2);
+
+let student = new Student({
+	name: "Bart Simpson",
+	teacherId: teacher.id
+});
+await Student.insert(student);
+
+student.teacher = teacher2;
+await student.save();
+```
+
+### Make some queries
+```javascript
+	// Teachers their first name contains "u"
+	let teachers = await Teacher.getAll()
+		.filter(t => t.firstName.includes("u"))
+		.sort(t => t.firstName)
+		.exec();
+```
+```javascript
+	// Students their name starts with 'P' or ends with 's'
+	let startsWith = "P";
+	let students = await Student.getAll()
+		.filter(s => s.name.startsWith($) || s.name.endsWith("s"), startsWith)
+		.sortDesc(s => s.name)
+		.slice(3, 8) // limit 5, skip 3
+		.exec();
+```
+```javascript
+	let onlyActive = true;
+	let activeSubjectsCount = await Subject.getAll()
+		.filterIf(s => s.active === true, onlyActive) // if (onlyActive) { .filter(s => s.active === true) }
+		.count()
+		.exec();
+```
+```javascript
+	let subjectNames = await Subject.getAll()
+		.sort(s => s.name)
+		.map(s => s.name) // select only names ; in SQL SELECT name FROM Subject
+		.exec();
+```
+```javascript
+	let subjectMap = await Subject.getAll()
+		.sort(s => s.name)
+		.map(s => ({
+			id: s.id,
+			name: s.name
+		}))
+		.exec();
+```

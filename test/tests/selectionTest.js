@@ -1,5 +1,5 @@
 /*
- * Testing Unit of Work & transactions
+ * Testing query selection
  */
 
 require("../preparation/debug"); // For debug needs
