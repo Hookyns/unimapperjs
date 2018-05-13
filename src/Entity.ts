@@ -281,7 +281,7 @@ export abstract class Entity<TEntity extends Entity<any>>
 	/**
 	 * Method for seeding. Implement this method and return data which should be seeded.
 	 */
-	static seed(): Entity<any>[]
+	static async seed(): Promise<Entity<any>[]>
 	{
 		return [];
 	}

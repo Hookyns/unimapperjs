@@ -121,7 +121,7 @@ export declare abstract class Entity<TEntity extends Entity<any>> {
     /**
      * Method for seeding. Implement this method and return data which should be seeded.
      */
-    static seed(): Entity<any>[];
+    static seed(): Promise<Entity<any>[]>;
     /**
      * Entity mapping. Implement this method.
      * @param {Entity} map

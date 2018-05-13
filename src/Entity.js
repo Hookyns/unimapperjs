@@ -182,7 +182,7 @@ class Entity {
     /**
      * Method for seeding. Implement this method and return data which should be seeded.
      */
-    static seed() {
+    static async seed() {
         return [];
     }
     /**

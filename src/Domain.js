@@ -269,7 +269,7 @@ module.exports = {\n\tup: async function up(adapter) {\n`
         try {
             await $uow.create(async (uow) => {
                 for (let entity of this.__createdEntities) {
-                    let data = entity.seed();
+                    let data = await entity.seed();
                     for (let item of data) {
                         uow.insert(item);
                     }
