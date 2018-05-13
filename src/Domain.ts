@@ -356,6 +356,38 @@ module.exports = {\n\tup: async function up(adapter) {\n`
 		}
 	}
 
+	// noinspection JSUnusedGlobalSymbols
+	/**
+	 * Run seeding
+	 * @returns {Promise<void>}
+	 */
+	async runSeeding()
+	{
+		const $uow = require("./UnitOfWork").UnitOfWork;
+		await new Promise(r => setImmediate(r));
+
+		try
+		{
+			await $uow.create(async (uow) => {
+				for (let entity of this.__createdEntities)
+				{
+					let data = entity.seed();
+
+					for (let item of data)
+					{
+						uow.insert(item);
+					}
+				}
+
+				await uow.saveChanges();
+			});
+		}
+		catch (e)
+		{
+			console.error("Seeding error:\n" + e.stack);
+		}
+	}
+
 	/**
 	 * Call dispose in adapter if needed
 	 */

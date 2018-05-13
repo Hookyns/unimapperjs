@@ -72,6 +72,11 @@ export declare class Domain {
      */
     runMigrations(...paths: any[]): Promise<void>;
     /**
+     * Run seeding
+     * @returns {Promise<void>}
+     */
+    runSeeding(): Promise<void>;
+    /**
      * Call dispose in adapter if needed
      */
     dispose(): Promise<void>;

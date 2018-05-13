@@ -24,4 +24,5 @@ export declare class Teacher extends Entity<Teacher> {
      * Mapping
      */
     static map(map: Teacher): void;
+    static seed(): Array<Teacher>;
 }

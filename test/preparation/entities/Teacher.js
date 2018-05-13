@@ -12,7 +12,7 @@ const domain_1 = require("../domain");
 /**
  * Teacher entity
  */
-let Teacher = class Teacher extends Entity_1.Entity {
+let Teacher = Teacher_1 = class Teacher extends Entity_1.Entity {
     /**
      * Mapping
      */
@@ -24,9 +24,16 @@ let Teacher = class Teacher extends Entity_1.Entity {
         map.students = index_1.type.foreign(Student.name)
             .hasMany(s => s.teacherId);
     }
+    static seed() {
+        return [
+            new Teacher_1({ firstName: "Seed", lastName: "Test" }),
+            new Teacher_1({ firstName: "Seed", lastName: "Testtwo" }),
+        ];
+    }
 };
-Teacher = __decorate([
+Teacher = Teacher_1 = __decorate([
     domain_1.domain.entity()
 ], Teacher);
 exports.Teacher = Teacher;
+var Teacher_1;
 //# sourceMappingURL=Teacher.js.map
