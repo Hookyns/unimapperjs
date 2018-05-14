@@ -256,19 +256,24 @@ class WhereExpression {
      * @param args
      */
     addExpression(expression, ...args) {
-        const fromCacheMap = getExprFromCache(expression);
+        let fromCacheMap = getExprFromCache(expression);
         if (!fromCacheMap) {
             const expr = convertWhereExpr(expression);
+            addExprToCache(expression, JSON.parse(JSON.stringify(expr)));
             // If some coditions already exists, add this WHERE as AND
             if (this.conditions.length != 0) {
                 expr.desc.unshift("and");
             }
             this.whereArgs = this.whereArgs.concat(args);
             this.conditions = this.conditions.concat(expr.desc);
-            addExprToCache(expression, expr);
         }
         else {
+            fromCacheMap = JSON.parse(JSON.stringify(fromCacheMap)); // Copy stored
             this.whereArgs = this.whereArgs.concat(args);
+            // If some coditions already exists, add this WHERE as AND
+            if (this.conditions.length != 0) {
+                fromCacheMap.desc.unshift("and");
+            }
             this.conditions = this.conditions.concat(fromCacheMap.desc);
         }
     }
