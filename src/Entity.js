@@ -122,11 +122,11 @@ class Entity {
         if (!(entity instanceof Entity)) {
             throw new Error("Parameter entity must be of type Entity");
         }
-        await this.domain.__adapter.remove(this, {
-            field: "id",
-            func: "=",
-            arg: entity.__properties[ID_FIELD_NAME]
-        }, connection);
+        await this.domain.__adapter.remove(this, [{
+                field: ID_FIELD_NAME,
+                func: "=",
+                arg: entity.__properties[ID_FIELD_NAME]
+            }], connection);
         entity.__isRemoved = true;
     }
     // noinspection JSUnusedGlobalSymbols
@@ -282,7 +282,8 @@ class Entity {
     mapFrom(data) {
         //let entity: TEntity = new (<any>this.constructor)();
         for (let field in data) {
-            if (data.hasOwnProperty(field)) {
+            if (data.hasOwnProperty(field)
+                && field in this.constructor._description) {
                 if (this[field] !== data[field] && field != ID_FIELD_NAME) {
                     this.__changedProps[field] = data[field];
                     this.__isDirty = true;

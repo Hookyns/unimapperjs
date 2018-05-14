@@ -205,11 +205,11 @@ export abstract class Entity<TEntity extends Entity<any>>
 			throw new Error("Parameter entity must be of type Entity");
 		}
 
-		await (<any>this.domain).__adapter.remove(this, {
-			field: "id",
+		await (<any>this.domain).__adapter.remove(this, [{
+			field: ID_FIELD_NAME,
 			func: "=",
 			arg: entity.__properties[ID_FIELD_NAME]
-		}, connection);
+		}], connection);
 		entity.__isRemoved = true;
 	}
 
@@ -425,7 +425,8 @@ export abstract class Entity<TEntity extends Entity<any>>
 
 		for (let field in data)
 		{
-			if (data.hasOwnProperty(field))
+			if (data.hasOwnProperty(field)
+				&& field in (<typeof Entity>this.constructor)._description)
 			{
 				if (this[field] !== data[field] && field != ID_FIELD_NAME)
 				{
