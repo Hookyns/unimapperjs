@@ -165,6 +165,16 @@ class Entity {
         return Reflect.construct(this, [entity[0], true]);
     }
     /**
+     * Check that entity with given Id exists
+     * @param {number | string} id
+     * @returns {Promise<boolean>}
+     */
+    static async exists(id) {
+        // TODO: Create exists in adapter; Related Query.some() - use some() rather then count() after implementation
+        // return (await this.getAll().where(x => x.id == $, id).count().exec()) == 1;
+        return (await this.domain.__adapter.select(this, [{ func: "count", arg: null }], [{ field: ID_FIELD_NAME, func: "=", arg: id }]))[0].count == 1;
+    }
+    /**
      * Returns description of entity
      * @returns {{}}
      */
@@ -291,6 +301,14 @@ class Entity {
             }
         }
         return this;
+    }
+    // noinspection JSUnusedGlobalSymbols
+    /**
+     * Implement toJSON
+     * @returns {{}}
+     */
+    toJSON() {
+        return this.__properties;
     }
     //endregion
     //region Private methods

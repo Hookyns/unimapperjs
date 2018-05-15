@@ -114,6 +114,12 @@ export declare abstract class Entity<TEntity extends Entity<any>> {
      */
     static getById<TEntity extends Entity<any>>(id: number | string, ...fields: Array<string>): Promise<any>;
     /**
+     * Check that entity with given Id exists
+     * @param {number | string} id
+     * @returns {Promise<boolean>}
+     */
+    static exists(id: number | string): Promise<boolean>;
+    /**
      * Returns description of entity
      * @returns {{}}
      */
@@ -163,6 +169,13 @@ export declare abstract class Entity<TEntity extends Entity<any>> {
      * @param {Object} data
      */
     mapFrom(data: any): TEntity;
+    /**
+     * Implement toJSON
+     * @returns {{}}
+     */
+    toJSON(): {
+        [key: string]: any;
+    };
     /**
      * Reset state flags
      */
