@@ -122,6 +122,7 @@ const whereBuildActions = {
 	"startswith": (field, val) => escapeIdSqlString(field) + ` LIKE ${escapeSqlString(val + "%")}`,
 	"endswith": (field, val) => escapeIdSqlString(field) + ` LIKE ${escapeSqlString("%" + val)}`,
 	"exists": (field) => escapeIdSqlString(field) + " IS NOT NULL",
+	"in": (field, val) => escapeIdSqlString(field) + ` IN (${(val || []).map(v => escapeSqlString(v)).join(",")})`,
 };
 
 function convertBooleanArg(arg) {
