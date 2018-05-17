@@ -122,7 +122,11 @@ const whereBuildActions = {
 	"startswith": (field, val) => escapeIdSqlString(field) + ` LIKE ${escapeSqlString(val + "%")}`,
 	"endswith": (field, val) => escapeIdSqlString(field) + ` LIKE ${escapeSqlString("%" + val)}`,
 	"exists": (field) => escapeIdSqlString(field) + " IS NOT NULL",
-	"in": (field, val) => escapeIdSqlString(field) + ` IN (${(val || []).map(v => escapeSqlString(v)).join(",")})`,
+	"in": (field, val) => {
+		val = val || [];
+		if (val.constructor !== Array || val.length === 0) return "1!=1";
+		return escapeIdSqlString(field) + ` IN (${val.map(v => escapeSqlString(v)).join(",")})`
+	},
 };
 
 function convertBooleanArg(arg) {
