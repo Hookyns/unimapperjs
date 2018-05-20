@@ -120,7 +120,7 @@ module.exports = {
 		//path = path.charAt(0).toLowerCase() + path.slice(1); // lowercase drive letter on windows
 
 		goThroughDir(path, (file) => {
-			if (file.slice(-3) !== ".js" || file.indexOf("seed") !== 1) return;
+			if (file.slice(-3) !== ".js" || file.indexOf("seed") !== -1) return;
 			file = "./" + $path.relative(__dirname, file).replace(/\\/g, "/");
 			/*let c = */require(file);
 			// console.log(c);
