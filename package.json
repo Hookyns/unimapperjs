@@ -1,6 +1,6 @@
 {
 	"name": "unimapperjs",
-	"version": "1.1.8",
+	"version": "1.1.9",
 	"description": "Universal node.js (native ES6/ES7) LINQ-like object mapper (ORM/ODM) for all types of databases (SQL, NoSQL).",
 	"author": {
 		"name": "Roman Jámbor",
