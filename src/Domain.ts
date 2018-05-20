@@ -504,7 +504,12 @@ module.exports = {\n\tup: async function up(adapter) {\n`
 					continue;
 				}
 
-				if (tableInfoTypeFields[typeFieldName] !== entityTypeFields[typeFieldName])
+				if (tableInfoTypeFields[typeFieldName] !== entityTypeFields[typeFieldName]
+					&& (
+						entityTypeFields.type !== Types.String
+						|| tableInfoTypeFields[typeFieldName] != entityTypeFields[typeFieldName]
+					)
+				)
 				{
 					changed = true;
 					break;
@@ -726,7 +731,7 @@ module.exports = {\n\tup: async function up(adapter) {\n`
 						const props = this.__properties;
 
 						// noinspection JSAccessibilityCheck
-						let val = chps[propName] || props[propName];
+						let val = propName in chps ? chps[propName] : props[propName];
 
 						if (val == undefined && isVirt)
 						{
@@ -739,7 +744,7 @@ module.exports = {\n\tup: async function up(adapter) {\n`
 										if (fkField)
 										{
 											// Foreign Id can be null if it's optional relation
-											let id = chps[fkField] || props[fkField];
+											let id = fkField in chps ? chps[fkField] : props[fkField];
 
 											if (id)
 											{

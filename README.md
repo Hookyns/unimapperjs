@@ -28,8 +28,7 @@ See [wiki](https://github.com/Hookyns/unimapperjs/wiki)
 - implement nested operations (eg. saving Enterprise should save all Employees in Enterprise.Employees collection too. Same rollbacking etc.)
 - add beforeSave() method into entity class - allow some operation before saving
 - add baseQuery property into entity class - it'll be used in ALL select queries (can be used for soft-delete)
-- implement client-side execution (query from client will send AJAJ request to server which will handle it as normal server query
-)
+- implement client-side execution (query from client will send AJAJ request to server which will handle it as normal server query; something like automatic GraphQL)
 - add whereOr() and whereOrIf() into Query
 
 ## Example

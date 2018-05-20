@@ -2,6 +2,7 @@ import { Query } from "./Query";
 import { Domain } from "./Domain";
 /**
  * @class
+ * @template TEntity
  */
 export declare abstract class Entity<TEntity extends Entity<any>> {
     /**
@@ -114,11 +115,24 @@ export declare abstract class Entity<TEntity extends Entity<any>> {
      */
     static getById<TEntity extends Entity<any>>(id: number | string, ...fields: Array<string>): Promise<any>;
     /**
+     * Select record by its id. Throw error if not fond.
+     * @param {number | string} id
+     * @param {string} fields
+     * @returns {Promise<any>}
+     */
+    static getByIdOrThrow<TEntity extends Entity<any>>(id: number | string, ...fields: Array<string>): Promise<void>;
+    /**
      * Check that entity with given Id exists
      * @param {number | string} id
      * @returns {Promise<boolean>}
      */
     static exists(id: number | string): Promise<boolean>;
+    /**
+     * Check that entity with given Id exists. If not, throw error
+     * @param {number | string} id
+     * @returns {Promise<boolean>}
+     */
+    static existsOrThrow(id: number | string): Promise<boolean>;
     /**
      * Returns description of entity
      * @returns {{}}
@@ -138,6 +152,31 @@ export declare abstract class Entity<TEntity extends Entity<any>> {
      * @param {Object} data
      */
     static reconstructFrom(data: any): Entity<any>;
+    /**
+     * Data validator
+     * @param {TEntity} entity
+     * @returns {Promise<boolean>}
+     */
+    static validate(entity: Entity<any>): Promise<boolean>;
+    /**
+     * Allows you to handle entity deletion
+     * @param {Entity<Entity>} entity
+     * @param {IPreventableEvent} event
+     */
+    static onRemove(entity: Entity<any>, event: IPreventableEvent): Promise<void>;
+    /**
+     * Allows you to handle build deletion
+     * @param {(entity: Entity<any>) => boolean} expression
+     * @param args
+     * @returns {Promise<void>}
+     */
+    static onRemoveWhere(expression: (entity: Entity<any>) => boolean, ...args: any[]): Promise<void>;
+    /**
+     * Allow you to add something into each query
+     * @param {Query<Entity>} query
+     * @returns {Promise<void>}
+     */
+    static baseQuery(query: Query<Entity<any>>): Promise<void>;
     /**
      * Return object with raw data
      * @returns {{}}

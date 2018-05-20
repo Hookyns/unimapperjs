@@ -367,7 +367,9 @@ module.exports = {\n\tup: async function up(adapter) {\n`
                 if (entityTypeFields.type === Types.Boolean && typeFieldName === "length") {
                     continue;
                 }
-                if (tableInfoTypeFields[typeFieldName] !== entityTypeFields[typeFieldName]) {
+                if (tableInfoTypeFields[typeFieldName] !== entityTypeFields[typeFieldName]
+                    && (entityTypeFields.type !== Types.String
+                        || tableInfoTypeFields[typeFieldName] != entityTypeFields[typeFieldName])) {
                     changed = true;
                     break;
                 }
@@ -534,7 +536,7 @@ module.exports = {\n\tup: async function up(adapter) {\n`
                         const chps = this.__changedProps;
                         const props = this.__properties;
                         // noinspection JSAccessibilityCheck
-                        let val = chps[propName] || props[propName];
+                        let val = propName in chps ? chps[propName] : props[propName];
                         if (val == undefined && isVirt) {
                             val = new Promise((resolve, reject) => {
                                 setImmediate(async () => {
@@ -542,7 +544,7 @@ module.exports = {\n\tup: async function up(adapter) {\n`
                                         let val;
                                         if (fkField) {
                                             // Foreign Id can be null if it's optional relation
-                                            let id = chps[fkField] || props[fkField];
+                                            let id = fkField in chps ? chps[fkField] : props[fkField];
                                             if (id) {
                                                 val = await fEtity.getById(id);
                                             }

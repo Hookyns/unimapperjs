@@ -7,8 +7,12 @@ import {WhereExpression} from "./WhereExpression";
 // Name of field holding entity identifier
 const ID_FIELD_NAME = "id";
 
+// Error ID
+const ENTITY_NOT_FOUND = "entity_not_found";
+
 /**
  * @class
+ * @template TEntity
  */
 export abstract class Entity<TEntity extends Entity<any>>
 {
@@ -96,24 +100,27 @@ export abstract class Entity<TEntity extends Entity<any>>
 	 */
 	constructor(data: any = {}, markDataAsChangedProperties: boolean = true)
 	{
-		let defaultData = (<any>this.constructor).__defaultData;
+		const ctor = this.constructor as typeof Entity;
+		let defaultData = ctor.__defaultData; // Contains data for all existing properties
+		//let entityProps = ctor._description;
+
 		let changedProps = {}, p;
 
-		let propKeys = Object.keys(data);
+		// let propKeys = Object.keys(data);
 		let defKeys = Object.keys(defaultData);
 		let properties = {};
 
 		for (let i = 0; i < defKeys.length; i++)
 		{
 			p = defKeys[i];
-			properties[p] = defaultData[p]();
+			properties[p] = p in data ? data[p] : defaultData[p]();
 		}
 
-		for (let i = 0; i < propKeys.length; i++)
-		{
-			p = propKeys[i];
-			properties[p] = data[p];
-		}
+		// for (let i = 0; i < propKeys.length; i++)
+		// {
+		// 	p = propKeys[i];
+		// 	properties[p] = data[p];
+		// }
 
 		if (markDataAsChangedProperties)
 		{
@@ -130,7 +137,7 @@ export abstract class Entity<TEntity extends Entity<any>>
 		{
 			this.__isNew = true;
 		}
-		else
+		else if (markDataAsChangedProperties)
 		{
 			this.__isDirty = true;
 		}
@@ -258,16 +265,56 @@ export abstract class Entity<TEntity extends Entity<any>>
 	}
 
 	/**
+	 * Select record by its id. Throw error if not fond.
+	 * @param {number | string} id
+	 * @param {string} fields
+	 * @returns {Promise<any>}
+	 */
+	static async getByIdOrThrow<TEntity extends Entity<any>>(id: number | string, ...fields: Array<string>)
+	{
+		let entity = await this.getById(id, ...fields);
+
+		if (entity === null) {
+			throw {
+				id: ENTITY_NOT_FOUND,
+				statusCode: 404,
+				message: `Entity ${this.name} (id: ${id}) not found.`
+			};
+		}
+	}
+
+	/**
 	 * Check that entity with given Id exists
 	 * @param {number | string} id
 	 * @returns {Promise<boolean>}
 	 */
-	static async exists(id: number | string): Promise<boolean> {
+	static async exists(id: number | string): Promise<boolean>
+	{
 		// TODO: Create exists in adapter; Related Query.some() - use some() rather then count() after implementation
 		// return (await this.getAll().where(x => x.id == $, id).count().exec()) == 1;
 
 		return (await (<any>this.domain).__adapter.select(this, [{func: "count", arg: null}],
 			[{field: ID_FIELD_NAME, func: "=", arg: id}]))[0].count == 1;
+	}
+
+	/**
+	 * Check that entity with given Id exists. If not, throw error
+	 * @param {number | string} id
+	 * @returns {Promise<boolean>}
+	 */
+	static async existsOrThrow(id: number | string): Promise<boolean>
+	{
+		let exists = await this.exists(id);
+
+		if (!exists) {
+			throw {
+				id: ENTITY_NOT_FOUND,
+				statusCode: 404,
+				message: `Entity ${this.name} (id: ${id}) not found.`
+			};
+		}
+
+		return exists;
 	}
 
 	/**
@@ -295,17 +342,14 @@ export abstract class Entity<TEntity extends Entity<any>>
 	 * Method for seeding. Implement this method and return data which should be seeded.
 	 */
 	static async seed(): Promise<Entity<any>[]>
-	{
-		return [];
-	}
+	{ return []; }
 
 	/**
 	 * Entity mapping. Implement this method.
 	 * @param {Entity} map
 	 */
 	static map(map: Entity<any>)
-	{
-	}
+	{ }
 
 	// noinspection JSUnusedGlobalSymbols
 	/**
@@ -317,6 +361,39 @@ export abstract class Entity<TEntity extends Entity<any>>
 		let entity: Entity<any> = new (<any>this.constructor)(data, false);
 		return entity;
 	}
+
+	/**
+	 * Data validator
+	 * @param {TEntity} entity
+	 * @returns {Promise<boolean>}
+	 */
+	static async validate(entity: Entity<any>): Promise<boolean>
+	{ return true; }
+
+	/**
+	 * Allows you to handle entity deletion
+	 * @param {Entity<Entity>} entity
+	 * @param {IPreventableEvent} event
+	 */
+	static async onRemove(entity: Entity<any>, event: IPreventableEvent): Promise<void>
+	{ }
+
+	/**
+	 * Allows you to handle build deletion
+	 * @param {(entity: Entity<any>) => boolean} expression
+	 * @param args
+	 * @returns {Promise<void>}
+	 */
+	static async onRemoveWhere(expression: (entity: Entity<any>) => boolean, ...args)
+	{ }
+
+	/**
+	 * Allow you to add something into each query
+	 * @param {Query<Entity>} query
+	 * @returns {Promise<void>}
+	 */
+	static async baseQuery(query: Query<Entity<any>>): Promise<void>
+	{ }
 
 	//endregion
 
@@ -335,7 +412,7 @@ export abstract class Entity<TEntity extends Entity<any>>
 		{
 			if (props.hasOwnProperty(p) && (<any>desc[p]).description.type !== Type.Types.Virtual)
 			{
-				rtrn[p] = chp[p] || props[p];
+				rtrn[p] = p in chp ? chp[p] : props[p];
 			}
 		}
 
@@ -421,7 +498,8 @@ export abstract class Entity<TEntity extends Entity<any>>
 	/**
 	 * Remove changes on this entity instance
 	 */
-	rollbackChanges() {
+	rollbackChanges()
+	{
 		this.__changedProps = {};
 		this.__isDirty = false;
 	}
@@ -457,7 +535,8 @@ export abstract class Entity<TEntity extends Entity<any>>
 	 * Implement toJSON
 	 * @returns {{}}
 	 */
-	toJSON() {
+	toJSON()
+	{
 		return this.__properties;
 	}
 

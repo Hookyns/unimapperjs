@@ -2,3 +2,8 @@ test
 *.ts
 *.js.map
 tsconfig.json
+.idea
+dev-tests
+node_modules
+test-results.xml
+test/migrations/*.js

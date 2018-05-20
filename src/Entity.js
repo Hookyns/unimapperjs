@@ -6,8 +6,11 @@ const NumberType_1 = require("./types/NumberType");
 const WhereExpression_1 = require("./WhereExpression");
 // Name of field holding entity identifier
 const ID_FIELD_NAME = "id";
+// Error ID
+const ENTITY_NOT_FOUND = "entity_not_found";
 /**
  * @class
+ * @template TEntity
  */
 class Entity {
     //endregion
@@ -44,19 +47,22 @@ class Entity {
          * @protected
          */
         this.__isDirty = false;
-        let defaultData = this.constructor.__defaultData;
+        const ctor = this.constructor;
+        let defaultData = ctor.__defaultData; // Contains data for all existing properties
+        //let entityProps = ctor._description;
         let changedProps = {}, p;
-        let propKeys = Object.keys(data);
+        // let propKeys = Object.keys(data);
         let defKeys = Object.keys(defaultData);
         let properties = {};
         for (let i = 0; i < defKeys.length; i++) {
             p = defKeys[i];
-            properties[p] = defaultData[p]();
+            properties[p] = p in data ? data[p] : defaultData[p]();
         }
-        for (let i = 0; i < propKeys.length; i++) {
-            p = propKeys[i];
-            properties[p] = data[p];
-        }
+        // for (let i = 0; i < propKeys.length; i++)
+        // {
+        // 	p = propKeys[i];
+        // 	properties[p] = data[p];
+        // }
         if (markDataAsChangedProperties) {
             for (p in properties) {
                 if (properties.hasOwnProperty(p) && p != ID_FIELD_NAME) {
@@ -67,7 +73,7 @@ class Entity {
         if (!data["id"]) {
             this.__isNew = true;
         }
-        else {
+        else if (markDataAsChangedProperties) {
             this.__isDirty = true;
         }
         this.__properties = properties;
@@ -165,6 +171,22 @@ class Entity {
         return Reflect.construct(this, [entity[0], true]);
     }
     /**
+     * Select record by its id. Throw error if not fond.
+     * @param {number | string} id
+     * @param {string} fields
+     * @returns {Promise<any>}
+     */
+    static async getByIdOrThrow(id, ...fields) {
+        let entity = await this.getById(id, ...fields);
+        if (entity === null) {
+            throw {
+                id: ENTITY_NOT_FOUND,
+                statusCode: 404,
+                message: `Entity ${this.name} (id: ${id}) not found.`
+            };
+        }
+    }
+    /**
      * Check that entity with given Id exists
      * @param {number | string} id
      * @returns {Promise<boolean>}
@@ -173,6 +195,22 @@ class Entity {
         // TODO: Create exists in adapter; Related Query.some() - use some() rather then count() after implementation
         // return (await this.getAll().where(x => x.id == $, id).count().exec()) == 1;
         return (await this.domain.__adapter.select(this, [{ func: "count", arg: null }], [{ field: ID_FIELD_NAME, func: "=", arg: id }]))[0].count == 1;
+    }
+    /**
+     * Check that entity with given Id exists. If not, throw error
+     * @param {number | string} id
+     * @returns {Promise<boolean>}
+     */
+    static async existsOrThrow(id) {
+        let exists = await this.exists(id);
+        if (!exists) {
+            throw {
+                id: ENTITY_NOT_FOUND,
+                statusCode: 404,
+                message: `Entity ${this.name} (id: ${id}) not found.`
+            };
+        }
+        return exists;
     }
     /**
      * Returns description of entity
@@ -192,15 +230,12 @@ class Entity {
     /**
      * Method for seeding. Implement this method and return data which should be seeded.
      */
-    static async seed() {
-        return [];
-    }
+    static async seed() { return []; }
     /**
      * Entity mapping. Implement this method.
      * @param {Entity} map
      */
-    static map(map) {
-    }
+    static map(map) { }
     // noinspection JSUnusedGlobalSymbols
     /**
      * Reconstruct entity instance from given data. It'll not mark properties as changed.
@@ -210,6 +245,31 @@ class Entity {
         let entity = new this.constructor(data, false);
         return entity;
     }
+    /**
+     * Data validator
+     * @param {TEntity} entity
+     * @returns {Promise<boolean>}
+     */
+    static async validate(entity) { return true; }
+    /**
+     * Allows you to handle entity deletion
+     * @param {Entity<Entity>} entity
+     * @param {IPreventableEvent} event
+     */
+    static async onRemove(entity, event) { }
+    /**
+     * Allows you to handle build deletion
+     * @param {(entity: Entity<any>) => boolean} expression
+     * @param args
+     * @returns {Promise<void>}
+     */
+    static async onRemoveWhere(expression, ...args) { }
+    /**
+     * Allow you to add something into each query
+     * @param {Query<Entity>} query
+     * @returns {Promise<void>}
+     */
+    static async baseQuery(query) { }
     //endregion
     //region Public methods
     /**
@@ -221,7 +281,7 @@ class Entity {
         const rtrn = {}, props = this.__properties, chp = this.__changedProps;
         for (let p in props) {
             if (props.hasOwnProperty(p) && desc[p].description.type !== Type_1.Type.Types.Virtual) {
-                rtrn[p] = chp[p] || props[p];
+                rtrn[p] = p in chp ? chp[p] : props[p];
             }
         }
         return rtrn;

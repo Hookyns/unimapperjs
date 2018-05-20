@@ -72,7 +72,7 @@ function getCodeTypeDesc(dbDesc) {
 	}
 
 	if (type) {
-		let lengthMatch = dbDesc['Type'].match(/\(([0-9]+)/);
+		let lengthMatch = /*dbType === "text" ? [0] : */dbDesc['Type'].match(/\(([0-9]+)/);
 		let decimalMatch = dbDesc['Type'].match(/\([0-9]+,([0-9]+)/);
 
 		return {

@@ -36,7 +36,7 @@ module.exports.matchExpression = function matchExpression(expr) {
 
 		const fields = [];
 		exprStr.replace(new RegExp(entity + "\\.([\\w_]+)", "g"), function (_, field) {
-			fields.push(field);
+			if (!fields.includes(field)) fields.push(field);
 		});
 
 		cachedExpr = {
