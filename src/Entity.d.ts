@@ -120,7 +120,7 @@ export declare abstract class Entity<TEntity extends Entity<any>> {
      * @param {string} fields
      * @returns {Promise<any>}
      */
-    static getByIdOrThrow<TEntity extends Entity<any>>(id: number | string, ...fields: Array<string>): Promise<void>;
+    static getByIdOrThrow<TEntity extends Entity<any>>(id: number | string, ...fields: Array<string>): Promise<any>;
     /**
      * Check that entity with given Id exists
      * @param {number | string} id

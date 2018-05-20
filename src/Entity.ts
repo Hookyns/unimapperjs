@@ -281,6 +281,8 @@ export abstract class Entity<TEntity extends Entity<any>>
 				message: `Entity ${this.name} (id: ${id}) not found.`
 			};
 		}
+
+		return entity;
 	}
 
 	/**
@@ -564,7 +566,7 @@ export abstract class Entity<TEntity extends Entity<any>>
 
 		for (let propName in chp)
 		{
-			if (chp.hasOwnProperty(propName))
+			if (chp.hasOwnProperty(propName) && propName != ID_FIELD_NAME)
 			{
 				props[propName] = chp[propName];
 			}

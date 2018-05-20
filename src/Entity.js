@@ -185,6 +185,7 @@ class Entity {
                 message: `Entity ${this.name} (id: ${id}) not found.`
             };
         }
+        return entity;
     }
     /**
      * Check that entity with given Id exists
@@ -387,7 +388,7 @@ class Entity {
         const chp = this.__changedProps;
         const props = this.__properties;
         for (let propName in chp) {
-            if (chp.hasOwnProperty(propName)) {
+            if (chp.hasOwnProperty(propName) && propName != ID_FIELD_NAME) {
                 props[propName] = chp[propName];
             }
         }
