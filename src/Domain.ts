@@ -506,8 +506,9 @@ module.exports = {\n\tup: async function up(adapter) {\n`
 
 				if (tableInfoTypeFields[typeFieldName] !== entityTypeFields[typeFieldName]
 					&& (
-						entityTypeFields.type !== Types.String
-						|| tableInfoTypeFields[typeFieldName] != entityTypeFields[typeFieldName]
+						typeFieldName !== "length"
+						|| entityTypeFields.type !== Types.String
+						|| ~~tableInfoTypeFields[typeFieldName] != entityTypeFields[typeFieldName] // If type is string and fieldName is length cast table info into number -> null is same as 0
 					)
 				)
 				{
